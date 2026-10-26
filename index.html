@@ -139,6 +139,17 @@
   #eqKb button:disabled { opacity: .35; }
   #eqKb button.on { background: #cfcfcf; }
 
+  /* Historial */
+  .hist { margin-top: 12px; }
+  .hist-head { display: flex; justify-content: space-between; align-items: center; }
+  .hist-head .lbl { margin: 0; }
+  #histClear { height: 30px !important; font-size: 12px !important; padding: 0 10px !important; }
+  #hist { display: grid; gap: 6px; margin-top: 6px; }
+  .hist-item { height: auto !important; display: grid; gap: 2px; padding: 6px 10px; text-align: right; }
+  .hist-item small { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; color: #555; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hist-item span { font-size: 17px; }
+  .hist-empty { font-size: 13px; color: #555; padding: 6px 2px; }
+
   @media (max-width: 359px) {
     button { font-size: 12px; height: 46px; }
   }
@@ -161,6 +172,11 @@
   <div class="keys six top" id="top"></div>
   <div class="keys six" id="sci"></div>
   <div class="keys five" id="num"></div>
+  </div>
+
+  <div id="histBox" class="hist">
+    <div class="hist-head"><span class="lbl">Historial</span><button type="button" id="histClear">Borrar</button></div>
+    <div id="hist"></div>
   </div>
 
   <section id="viewEq" hidden>
@@ -431,6 +447,7 @@
   function evalNow() {
     try {
       const v = evalTokens();
+      if (tokens.length) addHistory(tokens.map(t => DISP[t] || t).join(''), fmt(v));
       lastAns = v;
       result = fmt(v);
       error = '';
@@ -890,6 +907,7 @@
     view = v;
     $('viewCalc').hidden = v !== 'calc';
     $('viewEq').hidden = v !== 'eq';
+    $('histBox').hidden = v !== 'calc';
     document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.view === v));
     if (v === 'eq') { if (eq.open) renderEditor(); else renderList(); }
   }
@@ -1088,16 +1106,32 @@
     } catch (err) { showRes(err.message, 'err'); }
   }
 
-  // Calcular: muestra el resultado y lo pasa a la calculadora normal como valor actual y Ans
+  // Tokens de la calculadora después de los cuales no hace falta multiplicar implícitamente
+  const CALC_OPERATOR_TOKENS = new Set(['NEG', '+', '-', '*', '/', '^', 'xroot', 'nCr', 'nPr', '(', ',', 'EXP']);
+
+  // Pasa el valor a la calculadora sin borrar lo que ya hay: si hay expresión, inserta Ans en el cursor
+  function sendToCalc(v) {
+    lastAns = v;
+    error = '';
+    if (!tokens.length) {
+      result = fmt(v);
+      justEval = true;
+      return;
+    }
+    const before = tokens[cursor - 1];
+    const add = before !== undefined && !CALC_OPERATOR_TOKENS.has(before) ? ['*', 'ANS'] : ['ANS'];
+    tokens.splice(cursor, 0, ...add);
+    cursor += add.length;
+    result = '';
+    justEval = false;
+  }
+
+  // Calcular: muestra el resultado y lo pasa a la calculadora normal
   function calcAndSend() {
     recalc();
     if (eqValue === null) return;
-    lastAns = eqValue;
-    tokens = [];
-    cursor = 0;
-    error = '';
-    result = fmt(eqValue);
-    justEval = true;
+    addHistory(showExpr(eq.expr), fmt(eqValue));
+    sendToCalc(eqValue);
     setView('calc');
     render();
   }
@@ -1227,6 +1261,60 @@
     }
   }
 
+  // ---------- Historial: máximo 10 cálculos; al entrar uno nuevo se elimina el más antiguo ----------
+  const HIST_KEY = 'calc.history.v1';
+  const HIST_MAX = 10;
+  let calcHistory = (() => {
+    try {
+      const d = JSON.parse(localStorage.getItem(HIST_KEY) || '[]');
+      return Array.isArray(d) ? d.filter(x => x && typeof x.e === 'string' && typeof x.r === 'string').slice(0, HIST_MAX) : [];
+    } catch (err) { return []; }
+  })();
+
+  function addHistory(expr, res) {
+    calcHistory = [{ e: expr, r: res }, ...calcHistory].slice(0, HIST_MAX);
+    try { localStorage.setItem(HIST_KEY, JSON.stringify(calcHistory)); }
+    catch (err) { /* sin almacenamiento el historial sigue en memoria */ }
+    renderHistory();
+  }
+
+  function renderHistory() {
+    const box = $('hist');
+    box.textContent = '';
+    if (!calcHistory.length) {
+      const m = document.createElement('div');
+      m.className = 'hist-empty';
+      m.textContent = 'Sin cálculos todavía.';
+      box.append(m);
+      return;
+    }
+    for (const h of calcHistory) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'hist-item';
+      b.dataset.res = h.r;
+      const e = document.createElement('small');
+      e.textContent = h.e;
+      const r = document.createElement('span');
+      r.textContent = h.r;
+      b.append(e, r);
+      box.append(b);
+    }
+  }
+
+  // Tocar un cálculo lo usa como valor en la calculadora (sin borrar lo que haya)
+  $('hist').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    sendToCalc(Number(b.dataset.res));
+    render();
+  });
+  $('histClear').addEventListener('click', () => {
+    calcHistory = [];
+    try { localStorage.removeItem(HIST_KEY); } catch (err) { /* nada que limpiar */ }
+    renderHistory();
+  });
+
   // ---------- Eventos ----------
   document.querySelector('.tabs').addEventListener('click', e => {
     const b = e.target.closest('button');
@@ -1269,6 +1357,7 @@
   showList();
   setView('calc');
 
+  renderHistory();
   render();
 })();
 </script>
