@@ -21,6 +21,20 @@ Teclado físico: dígitos, `+ - * /`, `( ) , . ^`, `Enter` para `=`, `Backspace`
 - **Constantes**: `π` (SHIFT + EXP) y `Ran#` (SHIFT + `.`).
 - **Edición**: `◄ ►` (REPLAY) mueven el cursor, `DEL` borra antes del cursor.
 
+## EQUATIONS (ecuaciones personalizadas)
+
+La pestaña **EQUATIONS** permite crear, guardar, buscar, abrir, editar, duplicar y eliminar ecuaciones con variables. La lista empieza vacía; no hay ecuaciones de ejemplo.
+
+- **Expresión**: se escribe con el teclado virtual (letras QWERTY, números, operaciones y funciones) o con el teclado físico. Las variables son letras A–Z; `π` y `e` (minúscula) son constantes con valor inicial editable.
+- **Mayúsculas y minúsculas**: el teclado virtual escribe mayúsculas por defecto y `⇧` alterna a minúsculas. El teclado físico escribe la letra tal cual. `x` y `X` son variables distintas.
+- **Variables**: se detectan solas y solo aparecen sus campos. Cambiar un valor recalcula sin tocar la expresión guardada; para cambiar la expresión hay que pulsar **Editar** y luego **Guardar cambios**.
+- **Funciones**: `sin cos tan asin acos atan sinh cosh tanh log ln sqrt cbrt exp`, factorial `!`, `C(n,r)` y `P(n,r)` (combinaciones y permutaciones). Las funciones se reconocen cuando el nombre va seguido de `(`; en otro caso las letras son variables, así que `sin` escrito sin paréntesis se lee como `s·i·n`.
+- **Validación**: división por cero, expresiones mal formadas, argumentos inválidos en `C`/`P`/factorial, dominio de funciones, variables sin valor y valores no numéricos.
+- **Guardado**: en `localStorage` del navegador (clave `calc.equations.v1`). Persiste entre sesiones en el mismo navegador.
+- **Nombres repetidos**: se pide confirmación antes de guardar con un nombre que ya existe. Eliminar también pide confirmación.
+
+Ejemplo de uso (no viene precargado): `C(K,x)*C(N-K,n-x)/C(N,n)` con nombre `Distribución hipergeométrica`.
+
 ## Pendiente respecto a la fx-85WA original
 
 - `ENG`, `a b/c` y `d/c` (fracciones), `°′″` y `DRG▶` no hacen nada todavía.

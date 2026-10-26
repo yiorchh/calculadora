@@ -86,6 +86,62 @@
   button i.s { top: 4px; left: 5px; color: var(--shift); }
   button i.a { top: 4px; right: 5px; color: var(--alpha); }
   button b { font-weight: 500; }
+  [hidden] { display: none !important; }
+
+  /* Pestañas CALCULADORA / EQUATIONS */
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+  .tabs button { height: 36px; font-size: 13px; letter-spacing: .04em; }
+  .tabs button.on { background: #cfcfcf; font-weight: 600; }
+
+  /* EQUATIONS */
+  #viewEq button { height: 40px; font-size: 14px; }
+  #viewEq input {
+    width: 100%;
+    height: 40px;
+    padding: 0 10px;
+    font: inherit;
+    font-size: 16px;   /* evita el zoom automático de iOS al enfocar */
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--key);
+    color: var(--ink);
+  }
+  #viewEq input.bad { border-color: var(--alpha); }
+  #eqSearch { margin-bottom: 8px; }
+  .eq-list { display: grid; gap: 6px; }
+  .eq-item { height: auto !important; padding: 8px 10px; text-align: left; display: grid; gap: 2px; }
+  .eq-item span { font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .eq-item small { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; color: #555; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .eq-empty { background: var(--key); border: 1px dashed var(--line); border-radius: 8px; padding: 14px; font-size: 14px; color: #333; text-align: center; display: grid; gap: 10px; }
+  #eqNew { width: 100%; margin-top: 8px; }
+  #eqBack { height: 34px !important; font-size: 13px !important; padding: 0 12px !important; }
+  .lbl { font-size: 12px; color: #444; margin: 10px 0 4px; }
+  .box {
+    background: var(--key);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 10px;
+    min-height: 40px;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 16px;
+    word-break: break-all;
+  }
+  .box.res { text-align: right; font-size: 22px; min-height: 48px; }
+  .box.hint { font-family: inherit; font-size: 14px; color: #555; }
+  .box.err { font-family: inherit; font-size: 14px; color: var(--alpha); }
+  .eq-orig { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; color: #555; margin-top: 4px; min-height: 14px; word-break: break-all; }
+  .vars { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .vars label { display: grid; gap: 3px; font-size: 13px; }
+  .vars label span { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 600; }
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 12px; }
+  .msg { font-size: 13px; min-height: 18px; margin-top: 8px; color: #333; }
+  .kb { display: grid; gap: 4px; margin-top: 10px; }
+  .kb-row { display: flex; justify-content: center; gap: 4px; }
+  .kb-row button { flex: 0 0 calc(10% - 4px); height: 38px; padding: 0; font-size: 14px; }
+  .kb-ops { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+  #eqKb button { height: 38px; }
+  #eqKb button.on { background: #cfcfcf; }
+
   @media (max-width: 359px) {
     button { font-size: 12px; height: 46px; }
   }
@@ -93,6 +149,12 @@
 </head>
 <body>
 <div class="calc" id="calc">
+  <nav class="tabs">
+    <button type="button" data-view="calc" class="on">CALCULADORA</button>
+    <button type="button" data-view="eq">EQUATIONS</button>
+  </nav>
+
+  <div id="viewCalc">
   <div class="screen">
     <div class="ind" id="ind"></div>
     <div class="expr" id="expr"></div>
@@ -102,6 +164,38 @@
   <div class="keys six top" id="top"></div>
   <div class="keys six" id="sci"></div>
   <div class="keys five" id="num"></div>
+  </div>
+
+  <section id="viewEq" hidden>
+    <div id="eqListBox">
+      <input id="eqSearch" type="search" placeholder="Buscar por nombre" autocomplete="off">
+      <div id="eqList" class="eq-list"></div>
+      <button type="button" id="eqNew">+ Nueva ecuación</button>
+    </div>
+
+    <div id="eqEditor" hidden>
+      <div><button type="button" id="eqBack">← Ecuaciones</button></div>
+      <div class="lbl">Nombre</div>
+      <input id="eqName" type="text" maxlength="80" placeholder="Ej. Distribución hipergeométrica" autocomplete="off">
+      <div class="lbl">Expresión</div>
+      <div class="box" id="eqExpr"></div>
+      <div class="eq-orig" id="eqOrig"></div>
+      <div class="lbl">Valores</div>
+      <div class="vars" id="eqVars"></div>
+      <div class="lbl">Resultado</div>
+      <div class="box res" id="eqResult"></div>
+      <div class="actions">
+        <button type="button" id="eqCalc">Calcular</button>
+        <button type="button" id="eqEdit">Editar</button>
+        <button type="button" id="eqSave">Guardar cambios</button>
+        <button type="button" id="eqCancel">Cancelar</button>
+        <button type="button" id="eqDup">Duplicar</button>
+        <button type="button" id="eqDel">Eliminar</button>
+      </div>
+      <div class="msg" id="eqMsg"></div>
+      <div class="kb" id="eqKb" hidden></div>
+    </div>
+  </section>
 </div>
 
 <script>
@@ -526,7 +620,7 @@
   }
 
   // Delegación de clics: cada botón lleva su id en data-k
-  $('calc').addEventListener('click', e => {
+  $('viewCalc').addEventListener('click', e => {
     const b = e.target.closest('button');
     if (b) press(b.dataset.k);
   });
@@ -538,12 +632,557 @@
     ArrowLeft: 'left', ArrowRight: 'right'
   };
   window.addEventListener('keydown', e => {
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (view !== 'calc' || e.ctrlKey || e.metaKey || e.altKey) return;
     const id = /^[0-9]$/.test(e.key) ? 'd' + e.key : KEYMAP[e.key];
     if (!id) return;
     e.preventDefault();
     press(id);
   });
+
+  // ================= EQUATIONS =================
+  let view = 'calc';
+  const STORE_KEY = 'calc.equations.v1';
+  const CONSTS = { 'π': Math.PI, e: Math.E };          // constantes: valor inicial editable
+  const FN_NAMES = ['asinh', 'acosh', 'atanh', 'asin', 'acos', 'atan', 'sinh', 'cosh', 'tanh',
+    'sin', 'cos', 'tan', 'log', 'ln', 'sqrt', 'cbrt', 'exp', 'C', 'P'];
+  const FN_ARGS = { C: 2, P: 2 };
+  const NUM_RE = /^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i;
+  const EQ_DIGITS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
+  const EQ_LETTERS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
+  const EQ_OPS = [
+    ['(', '('], [')', ')'], [',', ','], ['!', '!'], ['^', '^'], ['π', 'π'],
+    ['sin', 'sin('], ['cos', 'cos('], ['tan', 'tan('], ['√', 'sqrt('], ['ln', 'ln('], ['log', 'log('],
+    ['C(', 'C('], ['P(', 'P('], ['e', 'e'], ['+', '+'], ['−', '-'], ['×', '*'],
+    ['÷', '/'], ['.', '.']
+  ];
+  const EQ_CHAR_RE = /^[A-Za-z0-9.+\-*/^()!,]$/;
+
+  const eq = { open: false, id: null, name: '', expr: '', saved: null, editing: false, cursor: 0, values: {} };
+  let cur = { tree: null, err: '', vars: [] };   // análisis de la expresión de trabajo
+  let kbLower = false;
+
+  // ---------- Almacenamiento ----------
+  const normName = s => s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const sameName = (a, b) => normName(a) === normName(b);
+  const newId = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+    : 'eq-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+  function loadEquations() {
+    try {
+      const data = JSON.parse(localStorage.getItem(STORE_KEY) || '[]');
+      return Array.isArray(data)
+        ? data.filter(x => x && typeof x.id === 'string' && typeof x.name === 'string' && typeof x.expr === 'string')
+        : [];
+    } catch (err) { return []; }
+  }
+  let equations = loadEquations();
+  let storageOk = true;
+  function persist() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(equations)); storageOk = true; }
+    catch (err) { storageOk = false; }
+  }
+
+  // ---------- Tokenizador ----------
+  const bad = msg => { throw new Error(msg); };
+  const isNat = x => Number.isInteger(x) && x >= 0;
+
+  function tokenize(src) {
+    const out = [];
+    let i = 0;
+    while (i < src.length) {
+      const ch = src[i];
+      if (ch === ' ') { i++; continue; }
+      if (/[0-9.]/.test(ch)) {
+        const m = /^(\d+\.?\d*|\.\d+)/.exec(src.slice(i));
+        if (!m || src[i + m[1].length] === '.') bad('Número mal formado');
+        out.push({ t: 'num', v: parseFloat(m[1]) });
+        i += m[1].length;
+        continue;
+      }
+      if (/[A-Za-zπ]/.test(ch)) {
+        const fn = FN_NAMES.find(n => src.startsWith(n, i) && src[i + n.length] === '(');
+        if (fn) { out.push({ t: 'fn', n: fn }); i += fn.length; continue; }
+        // Una letra es variable (distingue mayúsculas); 'e' minúscula y 'π' son constantes
+        out.push({ t: ch === 'e' || ch === 'π' ? 'const' : 'var', n: ch });
+        i++;
+        continue;
+      }
+      if (!'+-*/^(),!'.includes(ch)) bad('Carácter no válido: ' + ch);
+      out.push({ t: 'op', v: ch });
+      i++;
+    }
+    return out;
+  }
+
+  // ---------- Analizador sintáctico → árbol (sin ejecutar código) ----------
+  function parseEq(src) {
+    const toks = tokenize(src);
+    if (!toks.length) bad('Escribe una expresión.');
+    let p = 0;
+    const at = () => toks[p];
+    const isOp = v => !!at() && at().t === 'op' && at().v === v;
+    const expect = v => { if (!isOp(v)) bad('Expresión mal formada'); p++; };
+    const startsPrimary = tk => !!tk && (tk.t === 'num' || tk.t === 'var' || tk.t === 'const' || tk.t === 'fn' || (tk.t === 'op' && tk.v === '('));
+
+    function expr() {
+      let n = term();
+      while (isOp('+') || isOp('-')) { const op = toks[p++].v; n = { t: 'bin', op, a: n, b: term() }; }
+      return n;
+    }
+    function term() {
+      let n = unary();
+      for (;;) {
+        if (isOp('*') || isOp('/')) { const op = toks[p++].v; n = { t: 'bin', op, a: n, b: unary() }; }
+        else if (startsPrimary(at())) { n = { t: 'bin', op: '*', a: n, b: unary() }; }  // 2π, 3(4), 2x
+        else return n;
+      }
+    }
+    function unary() {
+      if (isOp('-')) { p++; return { t: 'neg', a: unary() }; }
+      if (isOp('+')) { p++; return unary(); }
+      return power();
+    }
+    function power() {
+      const base = postfix();
+      if (isOp('^')) { p++; return { t: 'bin', op: '^', a: base, b: unary() }; }
+      return base;
+    }
+    function postfix() {
+      let n = primary();
+      while (isOp('!')) { p++; n = { t: 'fact', a: n }; }
+      return n;
+    }
+    function primary() {
+      const tk = at();
+      if (!tk) bad('Expresión mal formada');
+      if (tk.t === 'num') { p++; return { t: 'num', v: tk.v }; }
+      if (tk.t === 'var' || tk.t === 'const') { p++; return { t: tk.t, n: tk.n }; }
+      if (tk.t === 'fn') {
+        p++;
+        expect('(');
+        const args = [expr()];
+        while (isOp(',')) { p++; args.push(expr()); }
+        expect(')');
+        if (args.length !== (FN_ARGS[tk.n] || 1)) bad('Número de argumentos incorrecto en ' + tk.n + '()');
+        return { t: 'fn', n: tk.n, args };
+      }
+      if (isOp('(')) { p++; const n = expr(); expect(')'); return n; }
+      bad('Expresión mal formada');
+    }
+    const tree = expr();
+    if (p !== toks.length) bad('Expresión mal formada');
+    return tree;
+  }
+
+  function collectVars(node, out = []) {
+    if (node.t === 'var' || node.t === 'const') { if (!out.includes(node.n)) out.push(node.n); }
+    else if (node.t === 'bin') { collectVars(node.a, out); collectVars(node.b, out); }
+    else if (node.t === 'neg' || node.t === 'fact') collectVars(node.a, out);
+    else if (node.t === 'fn') node.args.forEach(a => collectVars(a, out));
+    return out;
+  }
+
+  // ---------- Evaluación del árbol con valores numéricos ----------
+  function evalTree(node, env) {
+    switch (node.t) {
+      case 'num': return node.v;
+      case 'var':
+      case 'const': {
+        const v = env[node.n];
+        if (v === undefined) bad('Falta valor de ' + node.n);
+        return v;
+      }
+      case 'neg': return -evalTree(node.a, env);
+      case 'fact': {
+        const n = evalTree(node.a, env);
+        if (!isNat(n) || n > 170) bad('Factorial solo admite enteros de 0 a 170');
+        return fact(n);
+      }
+      case 'bin': {
+        const a = evalTree(node.a, env);
+        const b = evalTree(node.b, env);
+        if (node.op === '+') return a + b;
+        if (node.op === '-') return a - b;
+        if (node.op === '*') return a * b;
+        if (node.op === '/') { if (b === 0) bad('División por cero'); return a / b; }
+        return a ** b;
+      }
+      case 'fn': {
+        const x = node.args.map(a => evalTree(a, env));
+        if (node.n === 'C' || node.n === 'P') {
+          const [n, r] = x;
+          if (!isNat(n) || !isNat(r) || r > n || n > 170) bad('Argumento inválido en ' + node.n + '(n,r): n y r deben ser enteros con 0 ≤ r ≤ n ≤ 170');
+          return node.n === 'C' ? comb(n, r) : perm(n, r);
+        }
+        const r = FUNCS[node.n](x[0]);
+        if (!Number.isFinite(r)) bad('Valor fuera de dominio en ' + node.n + '()');
+        return r;
+      }
+    }
+  }
+
+  function evaluateEquation(tree, env) {
+    const v = evalTree(tree, env);
+    if (!Number.isFinite(v)) bad('Resultado no válido');
+    return v;
+  }
+
+  const parseValue = raw => {
+    const t = raw.trim().replace(',', '.');
+    return NUM_RE.test(t) ? Number(t) : null;
+  };
+
+  // ---------- Lista y búsqueda ----------
+  function setMsg(text) { $('eqMsg').textContent = text || ''; }
+
+  function renderList() {
+    const list = $('eqList');
+    list.textContent = '';
+    if (!equations.length) {
+      const box = document.createElement('div');
+      box.className = 'eq-empty';
+      box.textContent = 'Todavía no tienes ecuaciones guardadas.';
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.action = 'new';
+      b.textContent = 'Crear primera ecuación';
+      box.append(b);
+      list.append(box);
+      return;
+    }
+    const q = $('eqSearch').value;
+    const items = equations
+      .filter(x => normName(x.name).includes(normName(q)))
+      .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    if (!items.length) {
+      const m = document.createElement('div');
+      m.className = 'eq-empty';
+      m.textContent = 'No hay ecuaciones que coincidan con «' + q.trim() + '».';
+      list.append(m);
+      return;
+    }
+    for (const x of items) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'eq-item';
+      b.dataset.id = x.id;
+      const name = document.createElement('span');
+      name.textContent = x.name;
+      const prev = document.createElement('small');
+      prev.textContent = x.expr.length > 60 ? x.expr.slice(0, 60) + '…' : x.expr;
+      b.append(name, prev);
+      list.append(b);
+    }
+  }
+
+  // ---------- Navegación y gestión ----------
+  function setView(v) {
+    view = v;
+    $('viewCalc').hidden = v !== 'calc';
+    $('viewEq').hidden = v !== 'eq';
+    document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.view === v));
+    if (v === 'eq') { if (eq.open) renderEditor(); else renderList(); }
+  }
+
+  const isDirty = () => eq.saved
+    ? eq.name !== eq.saved.name || eq.expr !== eq.saved.expr
+    : eq.name !== '' || eq.expr !== '';
+  const guardLeave = () => !isDirty() || confirm('Hay cambios sin guardar. ¿Salir de todos modos?');
+
+  function showList() {
+    // Al salir del editor el borrador ya fue confirmado o descartado: se limpia
+    Object.assign(eq, { open: false, id: null, name: '', expr: '', saved: null, editing: false, cursor: 0, values: {} });
+    $('eqListBox').hidden = false;
+    $('eqEditor').hidden = true;
+    setMsg('');
+    renderList();
+  }
+
+  function showEditor() {
+    eq.open = true;
+    $('eqListBox').hidden = true;
+    $('eqEditor').hidden = false;
+    setMsg('');
+    renderEditor();
+  }
+
+  function openEq(id) {
+    const rec = equations.find(x => x.id === id);
+    if (!rec || !guardLeave()) return;
+    Object.assign(eq, { id: rec.id, name: rec.name, expr: rec.expr, saved: { name: rec.name, expr: rec.expr },
+      editing: false, cursor: rec.expr.length, values: {} });
+    showEditor();
+  }
+
+  function newEq() {
+    if (!guardLeave()) return;
+    Object.assign(eq, { id: null, name: '', expr: '', saved: null, editing: true, cursor: 0, values: {} });
+    showEditor();
+  }
+
+  function backToList() {
+    if (guardLeave()) showList();
+  }
+
+  function startEdit() {
+    eq.editing = true;
+    eq.cursor = eq.expr.length;
+    setMsg('');
+    renderEditor();
+  }
+
+  function cancelEdit() {
+    if (isDirty() && !confirm('¿Descartar los cambios sin guardar?')) return;
+    if (!eq.saved) return showList();
+    Object.assign(eq, { name: eq.saved.name, expr: eq.saved.expr, editing: false, cursor: 0 });
+    setMsg('');
+    renderEditor();
+  }
+
+  function saveEq() {
+    const name = eq.name.trim();
+    const expr = eq.expr.trim();
+    if (!name) return setMsg('Escribe un nombre para la ecuación.');
+    try { parseEq(expr); } catch (err) { return setMsg(err.message); }
+    const clash = equations.find(x => x.id !== eq.id && sameName(x.name, name));
+    if (clash && !confirm('Ya existe una ecuación llamada «' + clash.name + '». ¿Guardar con ese mismo nombre de todos modos?')) return;
+
+    const now = Date.now();
+    const rec = eq.id && equations.find(x => x.id === eq.id);
+    if (rec) { rec.name = name; rec.expr = expr; rec.updatedAt = now; }
+    else {
+      eq.id = newId();
+      equations.push({ id: eq.id, name, expr, createdAt: now, updatedAt: now });
+    }
+    persist();
+    Object.assign(eq, { name, expr, saved: { name, expr }, editing: false });
+    setMsg(storageOk ? 'Ecuación guardada.' : 'No se pudo guardar en este navegador.');
+    renderEditor();
+  }
+
+  function uniqueCopyName(base) {
+    let name = base + ' (copia)';
+    for (let k = 2; equations.some(x => sameName(x.name, name)); k++) name = base + ' (copia ' + k + ')';
+    return name;
+  }
+
+  function duplicateEq() {
+    if (!eq.saved) return;
+    const now = Date.now();
+    const copy = { id: newId(), name: uniqueCopyName(eq.saved.name), expr: eq.saved.expr, createdAt: now, updatedAt: now };
+    equations.push(copy);
+    persist();
+    openEq(copy.id);
+  }
+
+  function removeEq() {
+    if (!eq.id) return;
+    if (!confirm('¿Eliminar «' + eq.saved.name + '»? Esta acción no se puede deshacer.')) return;
+    equations = equations.filter(x => x.id !== eq.id);
+    persist();
+    showList();
+  }
+
+  // ---------- Editor ----------
+  function renderEditor() {
+    const nameInput = $('eqName');
+    if (nameInput.value !== eq.name) nameInput.value = eq.name;
+    nameInput.readOnly = !eq.editing;
+    drawExpr();
+    $('eqOrig').textContent = eq.editing && eq.saved ? 'Original guardada: ' + eq.saved.expr : '';
+
+    try {
+      cur.tree = parseEq(eq.expr);
+      cur.err = '';
+    } catch (err) {
+      cur.tree = null;
+      cur.err = err.message;
+    }
+    cur.vars = cur.tree ? collectVars(cur.tree) : [];
+    for (const v of cur.vars) {
+      if (eq.values[v] === undefined && v in CONSTS) eq.values[v] = String(CONSTS[v]);
+    }
+    drawVars();
+
+    $('eqEdit').hidden = eq.editing;
+    $('eqSave').hidden = !eq.editing;
+    $('eqSave').textContent = eq.saved ? 'Guardar cambios' : 'Guardar';
+    $('eqCancel').hidden = !eq.editing;
+    $('eqDup').hidden = eq.editing || !eq.saved;
+    $('eqDel').hidden = !eq.saved;
+    $('eqKb').hidden = !eq.editing;
+    recalc();
+  }
+
+  function drawExpr() {
+    const el = $('eqExpr');
+    el.textContent = '';
+    if (!eq.editing) { el.textContent = eq.expr; return; }
+    const caret = document.createElement('span');
+    caret.className = 'caret';
+    el.append(eq.expr.slice(0, eq.cursor), caret, eq.expr.slice(eq.cursor));
+  }
+
+  function drawVars() {
+    const box = $('eqVars');
+    box.textContent = '';
+    for (const v of cur.vars) {
+      const lab = document.createElement('label');
+      const tag = document.createElement('span');
+      tag.textContent = v;
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.inputMode = 'decimal';
+      inp.autocomplete = 'off';
+      inp.placeholder = 'valor';
+      inp.dataset.v = v;
+      inp.value = eq.values[v] === undefined ? '' : eq.values[v];
+      lab.append(tag, inp);
+      box.append(lab);
+    }
+  }
+
+  function showRes(text, kind) {
+    const box = $('eqResult');
+    box.textContent = text;
+    box.className = 'box res' + (kind ? ' ' + kind : '');
+  }
+
+  // Recalcula con los valores actuales; no toca la expresión guardada
+  function recalc() {
+    const inputs = {};
+    $('eqVars').querySelectorAll('input').forEach(i => { inputs[i.dataset.v] = i; });
+    const env = {};
+    const missing = [];
+    const invalid = [];
+    for (const v of cur.vars) {
+      const raw = (eq.values[v] || '').trim();
+      const n = raw ? parseValue(raw) : null;
+      if (!raw) missing.push(v);
+      else if (n === null) invalid.push(v);
+      else env[v] = n;
+      if (inputs[v]) inputs[v].classList.toggle('bad', !!raw && n === null);
+    }
+    if (!cur.tree) return showRes(cur.err, 'hint');
+    if (invalid.length) return showRes('Valor no válido en ' + invalid.join(', '), 'err');
+    if (missing.length) return showRes('Falta valor de ' + missing.join(', '), 'hint');
+    try { showRes(fmt(evaluateEquation(cur.tree, env)), ''); }
+    catch (err) { showRes(err.message, 'err'); }
+  }
+
+  // ---------- Edición de la expresión (cursor) ----------
+  function insertEq(text) {
+    if (!eq.editing) return;
+    eq.expr = eq.expr.slice(0, eq.cursor) + text + eq.expr.slice(eq.cursor);
+    eq.cursor += text.length;
+    setMsg('');
+    renderEditor();
+  }
+
+  function deleteEq() {
+    if (!eq.editing || eq.cursor === 0) return;
+    const before = eq.expr.slice(0, eq.cursor);
+    // Borra una función entera (p. ej. "sin(") en lugar de un carácter suelto
+    const fn = FN_NAMES.slice().sort((a, b) => b.length - a.length).find(n => before.endsWith(n + '('));
+    const len = fn ? fn.length + 1 : 1;
+    eq.expr = before.slice(0, -len) + eq.expr.slice(eq.cursor);
+    eq.cursor -= len;
+    renderEditor();
+  }
+
+  function moveCursor(d) {
+    if (!eq.editing) return;
+    eq.cursor = Math.min(eq.expr.length, Math.max(0, eq.cursor + d));
+    renderEditor();
+  }
+
+  function clearExpr() {
+    if (!eq.editing) return;
+    eq.expr = '';
+    eq.cursor = 0;
+    renderEditor();
+  }
+
+  // ---------- Teclado virtual (QWERTY, números arriba, operaciones abajo) ----------
+  function kbKey(label, action, cls) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    if (cls) b.className = cls;
+    b.addEventListener('click', action);
+    return b;
+  }
+
+  function buildKeyboard() {
+    const kb = $('eqKb');
+    kb.textContent = '';
+    const addRow = (cls, keys) => {
+      const row = document.createElement('div');
+      row.className = cls;
+      keys.forEach(k => row.append(k));
+      kb.append(row);
+    };
+    addRow('kb-row', EQ_DIGITS.map(d => kbKey(d, () => insertEq(d))));
+    EQ_LETTERS.forEach((letters, i) => {
+      const keys = [...letters].map(L => {
+        const ch = kbLower ? L.toLowerCase() : L;
+        return kbKey(ch, () => insertEq(ch));
+      });
+      if (i === EQ_LETTERS.length - 1) keys.unshift(kbKey('⇧', toggleCase, kbLower ? 'on' : ''));
+      addRow('kb-row', keys);
+    });
+    const ops = EQ_OPS.map(([label, text]) => kbKey(label, () => insertEq(text)));
+    ops.push(kbKey('AC', clearExpr), kbKey('◄', () => moveCursor(-1)), kbKey('►', () => moveCursor(1)), kbKey('DEL', deleteEq));
+    addRow('kb-ops', ops);
+  }
+
+  function toggleCase() {
+    kbLower = !kbLower;
+    buildKeyboard();
+  }
+
+  // ---------- Eventos ----------
+  document.querySelector('.tabs').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (b) setView(b.dataset.view);
+  });
+  $('eqSearch').addEventListener('input', renderList);
+  $('eqNew').addEventListener('click', newEq);
+  $('eqList').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.action === 'new') newEq();
+    else if (b.dataset.id) openEq(b.dataset.id);
+  });
+  $('eqBack').addEventListener('click', backToList);
+  $('eqName').addEventListener('input', e => { eq.name = e.target.value; });
+  $('eqEdit').addEventListener('click', startEdit);
+  $('eqSave').addEventListener('click', saveEq);
+  $('eqCancel').addEventListener('click', cancelEdit);
+  $('eqDup').addEventListener('click', duplicateEq);
+  $('eqDel').addEventListener('click', removeEq);
+  $('eqCalc').addEventListener('click', recalc);
+  $('eqVars').addEventListener('input', e => {
+    const v = e.target.dataset.v;
+    if (!v) return;
+    eq.values[v] = e.target.value;   // cambia solo esta variable; la expresión no se toca
+    recalc();
+  });
+
+  // Teclado físico: la letra se inserta tal como se escribe
+  window.addEventListener('keydown', e => {
+    if (view !== 'eq' || !eq.editing || e.ctrlKey || e.metaKey || e.altKey) return;
+    const tag = document.activeElement && document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    if (e.key === 'Backspace') { e.preventDefault(); deleteEq(); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); moveCursor(-1); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); moveCursor(1); }
+    else if (e.key.length === 1 && EQ_CHAR_RE.test(e.key)) { e.preventDefault(); insertEq(e.key); }
+  });
+
+  buildKeyboard();
+  showList();
+  setView('calc');
 
   render();
 })();
