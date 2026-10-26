@@ -25,8 +25,8 @@ Teclado físico: dígitos, `+ - * /`, `( ) , . ^`, `Enter` para `=`, `Backspace`
 
 La pestaña **EQUATIONS** permite crear, guardar, buscar, abrir, editar, duplicar y eliminar ecuaciones con variables. La lista empieza vacía; no hay ecuaciones de ejemplo.
 
-- **Expresión**: se escribe con el teclado virtual (letras QWERTY, números, operaciones y funciones) o con el teclado físico. Las variables son letras A–Z; `π` y `e` (minúscula) son constantes con valor inicial editable.
-- **Mayúsculas y minúsculas**: el teclado virtual escribe mayúsculas por defecto y el botón `abc` / `ABC` alterna a minúsculas. El teclado físico escribe la letra tal cual. `x` y `X` son variables distintas.
+- **Expresión**: se escribe con el teclado virtual o con el teclado físico. En pantalla `nCr` y `nPr` se muestran como `C` y `P`. Las variables son letras A–Z; `π` y `e` (minúscula) son constantes con valor inicial editable.
+- **Teclado**: la misma disposición que la calculadora. `ABC` cambia entre números y letras (en el teclado de letras la tecla pasa a `123`). `ALPHA` alterna mayúsculas y minúsculas. `SHIFT` activa las funciones secundarias (`x!`, `nPr`, `10ˣ`, `eˣ`, `sin⁻¹`, `π`...). Las teclas sin función en EQUATIONS (ENG, a b/c, Pol(, hyp, STO, RCL, M+, MODE) se muestran deshabilitadas.
 - **Variables**: se detectan solas y solo aparecen sus campos. Cambiar un valor recalcula sin tocar la expresión guardada; para cambiar la expresión hay que pulsar **Editar** y luego **Guardar cambios**.
 - **Calcular**: muestra el resultado y lo pasa a la calculadora normal como valor actual y como `Ans`, para seguir operando con él.
 - **Funciones**: `sin cos tan asin acos atan sinh cosh tanh log ln sqrt cbrt exp` y factorial `!`. Las funciones se reconocen cuando el nombre va seguido de `(`; en otro caso las letras son variables, así que `sin` escrito sin paréntesis se lee como `s·i·n`.

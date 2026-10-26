@@ -116,32 +116,27 @@
   #eqNew { width: 100%; margin-top: 8px; }
   #eqBack { height: 34px !important; font-size: 13px !important; padding: 0 12px !important; }
   .lbl { font-size: 12px; color: #444; margin: 10px 0 4px; }
-  .box {
-    background: var(--key);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 8px 10px;
-    min-height: 40px;
-    font-family: ui-monospace, Menlo, Consolas, monospace;
-    font-size: 16px;
-    word-break: break-all;
-  }
-  .box.res { text-align: right; font-size: 22px; min-height: 48px; }
-  .box.hint { font-family: inherit; font-size: 14px; color: #555; }
-  .box.err { font-family: inherit; font-size: 14px; color: var(--alpha); }
   .eq-orig { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; color: #555; margin-top: 4px; min-height: 14px; word-break: break-all; }
   .vars { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
   .vars label { display: grid; gap: 3px; font-size: 13px; }
   .vars label span { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 600; }
   .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 12px; }
   .msg { font-size: 13px; min-height: 18px; margin-top: 8px; color: #333; }
-  .kb { display: grid; gap: 4px; margin-top: 10px; }
-  .kb-top, .kb-fn { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
-  .kb-pad { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
-  .kb-letters { display: flex; justify-content: center; gap: 4px; }
-  .kb-letters button { flex: 0 0 calc(10% - 4px); }
+  .res.hint { font-size: 14px; color: #555; }
+  .res.err { font-size: 16px; color: var(--alpha); }
+  .eq-head { display: grid; grid-template-columns: auto 1fr auto; gap: 6px; align-items: center; margin-bottom: 10px; }
+  .eq-head button { height: 40px; }
+  #eqSave { padding: 0 12px; font-size: 14px !important; }
+  #eqKb { display: grid; gap: 6px; margin-top: 10px; }
+  #eqKb .kb-top, #eqKb .kb-fn { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  #eqKb .kb-pad { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  #eqKb .kb-letters { display: flex; justify-content: center; gap: 4px; }
+  #eqKb .kb-letters button { flex: 0 0 calc(10% - 4px); }
+  #eqKb .kb-ops10 { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
+  #eqKb button { height: 46px; font-size: 14px; padding: 0; min-width: 0; }
+  #eqKb .kb-letters button, #eqKb .kb-ops10 button { height: 42px; font-size: 13px; }
+  #eqKb .kb-ops10 button { font-size: 11px; }
   #eqKb button:disabled { opacity: .35; }
-  #eqKb button { height: 38px; font-size: 13px; padding: 0; min-width: 0; }
   #eqKb button.on { background: #cfcfcf; }
 
   @media (max-width: 359px) {
@@ -176,26 +171,28 @@
     </div>
 
     <div id="eqEditor" hidden>
-      <div><button type="button" id="eqBack">← Ecuaciones</button></div>
-      <div class="lbl">Nombre</div>
-      <input id="eqName" type="text" maxlength="80" placeholder="Ej. Distribución hipergeométrica" autocomplete="off">
-      <div class="lbl">Expresión</div>
-      <div class="box" id="eqExpr"></div>
-      <div class="eq-orig" id="eqOrig"></div>
+      <div class="eq-head">
+        <button type="button" id="eqBack">←</button>
+        <input id="eqName" type="text" maxlength="80" placeholder="Nombre de la ecuación" autocomplete="off">
+        <button type="button" id="eqSave">Guardar</button>
+      </div>
+      <div class="screen">
+        <div class="ind" id="eqInd"></div>
+        <div class="expr" id="eqExpr"></div>
+        <div class="eq-orig" id="eqOrig"></div>
+        <div class="res" id="eqResult"></div>
+      </div>
       <div class="lbl">Valores</div>
       <div class="vars" id="eqVars"></div>
-      <div class="lbl">Resultado</div>
-      <div class="box res" id="eqResult"></div>
       <div class="actions">
         <button type="button" id="eqCalc">Calcular</button>
         <button type="button" id="eqEdit">Editar</button>
-        <button type="button" id="eqSave">Guardar cambios</button>
         <button type="button" id="eqCancel">Cancelar</button>
         <button type="button" id="eqDup">Duplicar</button>
         <button type="button" id="eqDel">Eliminar</button>
       </div>
       <div class="msg" id="eqMsg"></div>
-      <div class="kb" id="eqKb" hidden></div>
+      <div id="eqKb" hidden></div>
     </div>
   </section>
 </div>
@@ -646,10 +643,15 @@
   const STORE_KEY = 'calc.equations.v1';
   const CONSTS = { 'π': Math.PI, e: Math.E };          // constantes: valor inicial editable
   const FN_NAMES = ['asinh', 'acosh', 'atanh', 'asin', 'acos', 'atan', 'sinh', 'cosh', 'tanh',
-    'sin', 'cos', 'tan', 'log', 'ln', 'sqrt', 'cbrt', 'exp'];
+    'sin', 'cos', 'tan', 'log', 'ln', 'sqrt', 'cbrt', 'exp', 'pow10'];
   const NUM_RE = /^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i;
   const EQ_LETTERS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
   const EQ_CHAR_RE = /^[A-Za-z0-9.+\-*/^()!,]$/;
+  // Cómo se ve la expresión en pantalla (la expresión guardada usa la notación interna)
+  const EQ_DISP = [[' nCr ', ' C '], [' nPr ', ' P '], ['pow10(', '10ˣ('], ['exp(', 'eˣ('],
+    ['asin(', 'sin⁻¹('], ['acos(', 'cos⁻¹('], ['atan(', 'tan⁻¹('], ['sqrt(', '√('], ['cbrt(', '³√('],
+    ['^(-1)', '⁻¹'], ['^2', '²'], ['^3', '³'], ['*', '×'], ['/', '÷']];
+  const showExpr = s => EQ_DISP.reduce((o, [a, b]) => o.split(a).join(b), s);
   const DEL_TOKENS = [...FN_NAMES.map(n => n + '('), '^(-1)', '^2', '^3', ' nCr ', ' nPr ']
     .sort((a, b) => b.length - a.length);
 
@@ -876,7 +878,8 @@
       const name = document.createElement('span');
       name.textContent = x.name;
       const prev = document.createElement('small');
-      prev.textContent = x.expr.length > 60 ? x.expr.slice(0, 60) + '…' : x.expr;
+      const shown = showExpr(x.expr);
+      prev.textContent = shown.length > 60 ? shown.slice(0, 60) + '…' : shown;
       b.append(name, prev);
       list.append(b);
     }
@@ -996,7 +999,7 @@
     if (nameInput.value !== eq.name) nameInput.value = eq.name;
     nameInput.readOnly = !eq.editing;
     drawExpr();
-    $('eqOrig').textContent = eq.editing && eq.saved ? 'Original guardada: ' + eq.saved.expr : '';
+    $('eqOrig').textContent = eq.editing && eq.saved ? 'Original guardada: ' + showExpr(eq.saved.expr) : '';
 
     try {
       cur.tree = parseEq(eq.expr);
@@ -1013,21 +1016,25 @@
 
     $('eqEdit').hidden = eq.editing;
     $('eqSave').hidden = !eq.editing;
-    $('eqSave').textContent = eq.saved ? 'Guardar cambios' : 'Guardar';
+    $('eqSave').textContent = 'Guardar';
     $('eqCancel').hidden = !eq.editing;
     $('eqDup').hidden = eq.editing || !eq.saved;
     $('eqDel').hidden = !eq.saved;
     $('eqKb').hidden = !eq.editing;
+    if (eq.editing) renderKb();
+    $('eqInd').textContent = eq.editing
+      ? (kbLetters ? 'LETRAS' : 'NÚMEROS') + (kbLower ? ' · minúsculas' : '') + (shiftOn ? ' · SHIFT' : '')
+      : '';
     recalc();
   }
 
   function drawExpr() {
     const el = $('eqExpr');
     el.textContent = '';
-    if (!eq.editing) { el.textContent = eq.expr; return; }
+    if (!eq.editing) { el.textContent = showExpr(eq.expr); return; }
     const caret = document.createElement('span');
     caret.className = 'caret';
-    el.append(eq.expr.slice(0, eq.cursor), caret, eq.expr.slice(eq.cursor));
+    el.append(showExpr(eq.expr.slice(0, eq.cursor)), caret, showExpr(eq.expr.slice(eq.cursor)));
   }
 
   function drawVars() {
@@ -1052,7 +1059,7 @@
   function showRes(text, kind) {
     const box = $('eqResult');
     box.textContent = text;
-    box.className = 'box res' + (kind ? ' ' + kind : '');
+    box.className = 'res' + (kind ? ' ' + kind : '');
   }
 
   // Recalcula con los valores actuales; no toca la expresión guardada
@@ -1128,50 +1135,89 @@
     renderEditor();
   }
 
-  // ---------- Teclado virtual: misma disposición que la calculadora, letras debajo ----------
-  const kbKeyEl = k => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.textContent = k.l;
-    if (k.on) b.className = 'on';
-    if (k.dis) b.disabled = true;
-    else b.addEventListener('click', () => (k.act ? k.act() : insertEq(k.t)));
-    return b;
-  };
+  // ---------- Teclado virtual: la misma disposición que la calculadora ----------
+  // ALPHA: minúsculas · ABC/123: letras o números · SHIFT: funciones secundarias
+  let shiftOn = false;
+  let kbLetters = false;
 
-  // Teclas sin función en EQUATIONS (ENG, a b/c, Pol(, hyp, Ans...) se muestran deshabilitadas
-  function kbLayout() {
-    const letters = EQ_LETTERS.map(row => [...row].map(L => {
+  function toggleShift() { shiftOn = !shiftOn; renderKb(); }
+  function toggleLetters() { kbLetters = !kbLetters; renderKb(); }
+  function toggleCase() { kbLower = !kbLower; renderKb(); }
+
+  function kbLetterRows() {
+    return EQ_LETTERS.map(row => [...row].map(L => {
       const ch = kbLower ? L.toLowerCase() : L;
       return { l: ch, t: ch };
     }));
-    return [
+  }
+
+  function kbBlocks() {
+    const blocks = [
       { cls: 'kb-top', rows: [[
-        { l: 'SHIFT', dis: true }, { l: 'ALPHA', dis: true },
-        { l: '◄', act: () => moveCursor(-1) }, { l: '►', act: () => moveCursor(1) },
-        { l: kbLower ? 'ABC' : 'abc', act: toggleCase, on: kbLower },
+        { l: 'SHIFT', act: toggleShift, on: shiftOn },
+        { l: 'ALPHA', act: toggleCase, on: kbLower },
+        { l: '◄', act: () => moveCursor(-1) },
+        { l: '►', act: () => moveCursor(1) },
+        { l: 'MODE', dis: true },
         { l: 'ON', act: clearExpr }
       ]] },
       { cls: 'kb-fn', rows: [
-        [{ l: 'x⁻¹', t: '^(-1)' }, { l: 'nCr', t: ' nCr ' }, { l: 'Pol(', dis: true }, { l: '³√', t: 'cbrt(' }, { l: 'x³', t: '^3' }, { l: 'xʸ', t: '^' }],
-        [{ l: 'ENG', dis: true }, { l: 'a b/c', dis: true }, { l: '√', t: 'sqrt(' }, { l: 'x²', t: '^2' }, { l: 'log', t: 'log(' }, { l: 'ln', t: 'ln(' }],
-        [{ l: '(−)', t: '-' }, { l: '°′″', dis: true }, { l: 'hyp', dis: true }, { l: 'sin', t: 'sin(' }, { l: 'cos', t: 'cos(' }, { l: 'tan', t: 'tan(' }],
-        [{ l: '!', t: '!' }, { l: 'nPr', t: ' nPr ' }, { l: '(', t: '(' }, { l: ')', t: ')' }, { l: ',', t: ',' }, { l: 'e', t: 'e' }]
-      ] },
-      { cls: 'kb-pad', rows: [
+        [{ l: 'x⁻¹', t: '^(-1)', sl: 'x!', st: '!' }, { l: 'nCr', t: ' nCr ', sl: 'nPr', st: ' nPr ' },
+          { l: 'Pol(', dis: true, sl: 'Rec(', sdis: true }, { l: '³√', t: 'cbrt(' }, { l: 'x³', t: '^3' },
+          { l: 'xʸ', t: '^', sl: 'ˣ√', sdis: true }],
+        [{ l: 'ENG', dis: true }, { l: 'a b/c', dis: true }, { l: '√', t: 'sqrt(' }, { l: 'x²', t: '^2' },
+          { l: 'log', t: 'log(', sl: '10ˣ', st: 'pow10(' }, { l: 'ln', t: 'ln(', sl: 'eˣ', st: 'exp(' }],
+        [{ l: '(−)', t: '-' }, { l: '°′″', dis: true }, { l: 'hyp', dis: true },
+          { l: 'sin', t: 'sin(', sl: 'sin⁻¹', st: 'asin(' }, { l: 'cos', t: 'cos(', sl: 'cos⁻¹', st: 'acos(' },
+          { l: 'tan', t: 'tan(', sl: 'tan⁻¹', st: 'atan(' }],
+        [{ l: 'STO', dis: true }, { l: 'RCL', dis: true }, { l: '(', t: '(' }, { l: ')', t: ')' },
+          { l: ',', t: ',' }, { l: 'M+', dis: true }]
+      ] }
+    ];
+    if (kbLetters) {
+      blocks.push({ cls: 'kb-letters', rows: kbLetterRows() });
+      blocks.push({ cls: 'kb-ops10', rows: [[
+        { l: '123', act: toggleLetters }, { l: 'DEL', act: deleteEq }, { l: 'AC', act: clearExpr },
+        { l: '.', t: '.' }, { l: 'π', t: 'π' }, { l: '×', t: '*' }, { l: '÷', t: '/' },
+        { l: '+', t: '+' }, { l: '−', t: '-' }, { l: '=', act: calcAndSend }
+      ]] });
+    } else {
+      blocks.push({ cls: 'kb-pad', rows: [
         [{ l: '7', t: '7' }, { l: '8', t: '8' }, { l: '9', t: '9' }, { l: 'DEL', act: deleteEq }, { l: 'AC', act: clearExpr }],
         [{ l: '4', t: '4' }, { l: '5', t: '5' }, { l: '6', t: '6' }, { l: '×', t: '*' }, { l: '÷', t: '/' }],
         [{ l: '1', t: '1' }, { l: '2', t: '2' }, { l: '3', t: '3' }, { l: '+', t: '+' }, { l: '−', t: '-' }],
-        [{ l: '0', t: '0' }, { l: '.', t: '.' }, { l: 'π', t: 'π' }, { l: 'Ans', dis: true }, { l: '=', act: calcAndSend }]
-      ] },
-      { cls: 'kb-letters', rows: letters }
-    ];
+        [{ l: '0', t: '0' }, { l: '.', t: '.' }, { l: 'EXP', dis: true, sl: 'π', st: 'π' },
+          { l: 'ABC', act: toggleLetters }, { l: '=', act: calcAndSend }]
+      ] });
+    }
+    return blocks;
   }
 
-  function buildKeyboard() {
+  // Con SHIFT activo, las teclas con función secundaria muestran y escriben esa función
+  function kbKeyEl(k) {
+    const sh = shiftOn && k.sl !== undefined;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = sh ? k.sl : k.l;
+    b.disabled = sh ? !!k.sdis : !!k.dis;
+    if (k.on) b.className = 'on';
+    b.addEventListener('click', () => kbPress(k, sh));
+    return b;
+  }
+
+  function kbPress(k, sh) {
+    if (k.act === toggleShift) return toggleShift();
+    shiftOn = false;
+    if (sh) insertEq(k.st);
+    else if (k.act) k.act();
+    else insertEq(k.t);
+    renderKb();
+  }
+
+  function renderKb() {
     const kb = $('eqKb');
     kb.textContent = '';
-    for (const block of kbLayout()) {
+    for (const block of kbBlocks()) {
       for (const row of block.rows) {
         const r = document.createElement('div');
         r.className = block.cls;
@@ -1179,11 +1225,6 @@
         kb.append(r);
       }
     }
-  }
-
-  function toggleCase() {
-    kbLower = !kbLower;
-    buildKeyboard();
   }
 
   // ---------- Eventos ----------
@@ -1225,7 +1266,6 @@
     else if (e.key.length === 1 && EQ_CHAR_RE.test(e.key)) { e.preventDefault(); insertEq(e.key); }
   });
 
-  buildKeyboard();
   showList();
   setView('calc');
 
