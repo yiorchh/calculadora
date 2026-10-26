@@ -1126,11 +1126,7 @@
   function sendToCalc(v) {
     lastAns = v;
     error = '';
-    if (!tokens.length) {
-      result = fmt(v);
-      justEval = true;
-      return;
-    }
+    if (justEval) { cursor = tokens.length; justEval = false; }
     const before = tokens[cursor - 1];
     const num = valueTokens(v);
     // Si justo antes hay un valor (p. ej. "8"), se suma por defecto; si ya hay operador ("8-", "8*", "8/"), se usa ese
