@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Calculadora científica</title>
+<style>
+  :root {
+    --bg: #e6e6e6;
+    --key: #ffffff;
+    --line: #9a9a9a;
+    --ink: #111;
+    --screen: #dfe8d6;
+    --shift: #d9730d;
+    --alpha: #c0392b;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  .calc {
+    max-width: 420px;
+    margin: 0 auto;
+    padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
+  }
+  .screen {
+    background: var(--screen);
+    border: 2px solid #777;
+    border-radius: 8px;
+    padding: 8px 12px 10px;
+    min-height: 124px;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    overflow: hidden;
+  }
+  .ind { font-size: 12px; min-height: 16px; color: #333; }
+  .expr {
+    font-size: 17px;
+    min-height: 24px;
+    word-break: break-all;
+    white-space: pre-wrap;
+  }
+  .res {
+    font-size: 30px;
+    min-height: 40px;
+    text-align: right;
+    word-break: break-all;
+  }
+  .caret {
+    display: inline-block;
+    width: 2px;
+    height: 18px;
+    background: var(--ink);
+    vertical-align: middle;
+  }
+  .keys { display: grid; gap: 6px; margin-top: 8px; }
+  .six { grid-template-columns: repeat(6, 1fr); }
+  .five { grid-template-columns: repeat(5, 1fr); }
+  .top { margin-top: 12px; }
+  button {
+    position: relative;
+    min-width: 0;
+    height: 50px;
+    padding: 0;
+    background: var(--key);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:active { background: #ddd; }
+  button.on { background: #cfcfcf; }
+  button i {
+    position: absolute;
+    font-style: normal;
+    font-size: 9px;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  button i.s { top: 4px; left: 5px; color: var(--shift); }
+  button i.a { top: 4px; right: 5px; color: var(--alpha); }
+  button b { font-weight: 500; }
+  @media (max-width: 359px) {
+    button { font-size: 12px; height: 46px; }
+  }
+</style>
+</head>
+<body>
+<div class="calc" id="calc">
+  <div class="screen">
+    <div class="ind" id="ind"></div>
+    <div class="expr" id="expr"></div>
+    <div class="res" id="res"></div>
+  </div>
+
+  <div class="keys six top" id="top"></div>
+  <div class="keys six" id="sci"></div>
+  <div class="keys five" id="num"></div>
+</div>
+
+<script>
+(() => {
+  // ---------- Estado ----------
+  let tokens = [];          // expresión como lista de tokens
+  let cursor = 0;           // posición del cursor (REPLAY ◄ ►)
+  let result = '';          // último resultado mostrado
+  let error = '';           // mensaje de error
+  let lastAns = 0;          // Ans
+  let justEval = false;     // true tras pulsar '='
+  let shift = false, alpha = false;
+  let hypP = false, stoP = false, rclP = false, modeP = false;
+  let mode = 'COMP';        // COMP | SD
+  let angle = 'DEG';        // DEG | RAD | GRA
+  let stats = [];           // datos estadísticos (modo SD)
+  const mem = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0, X: 0, Y: 0, M: 0 };
+
+  const OPS = new Set(['+', '-', '*', '/', '^', 'xroot', 'nCr', 'nPr', '!', 'sq', 'cu', 'inv', '%', ')', ',']);
+  const DISP = {
+    NEG: '−', '*': '×', '/': '÷', sqrt: '√', cbrt: '³√', sq: '²', cu: '³', inv: '⁻¹',
+    pow10: '10ˣ', exp: 'eˣ', asin: 'sin⁻¹', acos: 'cos⁻¹', atan: 'tan⁻¹',
+    asinh: 'sinh⁻¹', acosh: 'cosh⁻¹', atanh: 'tanh⁻¹', EXP: 'EXP', EULER: 'e', PI: 'π',
+    ANS: 'Ans', RAN: 'Ran#', N: 'n', SUMX: 'Σx', SUMX2: 'Σx²', MEAN: 'x̄', SDP: 'xσn',
+    SDS: 'xσn-1', xroot: 'ˣ√', Pol: 'Pol', Rec: 'Rec'
+  };
+  const MODES = {
+    d1: ['mode', 'COMP'], d2: ['mode', 'SD'],
+    d3: ['angle', 'DEG'], d4: ['angle', 'RAD'], d5: ['angle', 'GRA']
+  };
+
+  // ---------- Errores y utilidades ----------
+  const syn = () => { throw new Error('Syntax ERROR'); };
+  const math = () => { throw new Error('Math ERROR'); };
+  const noop = () => {};
+  const toRad = x => angle === 'DEG' ? x * Math.PI / 180 : angle === 'GRA' ? x * Math.PI / 200 : x;
+  const fromRad = x => angle === 'DEG' ? x * 180 / Math.PI : angle === 'GRA' ? x * 200 / Math.PI : x;
+
+  const fact = n => {
+    if (!Number.isInteger(n) || n < 0 || n > 170) math();
+    let r = 1;
+    for (let i = 2; i <= n; i++) r *= i;
+    return r;
+  };
+  const comb = (n, r) => {
+    if (!Number.isInteger(n) || !Number.isInteger(r) || r < 0 || r > n) math();
+    return Math.round(fact(n) / (fact(r) * fact(n - r)));
+  };
+  const perm = (n, r) => {
+    if (!Number.isInteger(n) || !Number.isInteger(r) || r < 0 || r > n) math();
+    return Math.round(fact(n) / fact(n - r));
+  };
+  const pol = (x, y) => { mem.Y = fromRad(Math.atan2(y, x)); return Math.hypot(x, y); };
+  const rec = (r, t) => { const a = toRad(t); mem.Y = r * Math.sin(a); return r * Math.cos(a); };
+
+  const FUNCS = {
+    sin: x => Math.sin(toRad(x)), cos: x => Math.cos(toRad(x)), tan: x => Math.tan(toRad(x)),
+    asin: x => fromRad(Math.asin(x)), acos: x => fromRad(Math.acos(x)), atan: x => fromRad(Math.atan(x)),
+    sinh: Math.sinh, cosh: Math.cosh, tanh: Math.tanh,
+    asinh: Math.asinh, acosh: Math.acosh, atanh: Math.atanh,
+    log: Math.log10, ln: Math.log, sqrt: Math.sqrt, cbrt: Math.cbrt,
+    exp: Math.exp, pow10: x => 10 ** x
+  };
+
+  const sum = a => a.reduce((s, x) => s + x, 0);
+  const mean = () => { if (!stats.length) math(); return sum(stats) / stats.length; };
+  const sdev = k => {
+    const n = stats.length;
+    if (n <= k) math();
+    const m = mean();
+    return Math.sqrt(stats.reduce((s, x) => s + (x - m) ** 2, 0) / (n - k));
+  };
+
+  // ---------- Parser (descenso recursivo) ----------
+  let tks = [], pos = 0;
+  const peek = () => tks[pos];
+  const expect = t => { if (peek() !== t) syn(); pos++; };
+  const isDigit = t => /^[0-9.]$/.test(t || '');
+  const VARS = ['PI', 'EULER', 'ANS', 'RAN', 'N', 'SUMX', 'SUMX2', 'MEAN', 'SDP', 'SDS', 'A', 'B', 'C', 'D', 'E', 'F', 'X', 'Y', 'M'];
+  const startsPrimary = t => t !== undefined && (isDigit(t) || t === '(' || t === 'Pol' || t === 'Rec' || t in FUNCS || VARS.includes(t));
+
+  function parseExpr() {
+    let v = parseTerm();
+    for (;;) {
+      const t = peek();
+      if (t === '+') { pos++; v += parseTerm(); }
+      else if (t === '-') { pos++; v -= parseTerm(); }
+      else return v;
+    }
+  }
+
+  function parseTerm() {
+    let v = parseUnary();
+    for (;;) {
+      const t = peek();
+      if (t === '*') { pos++; v *= parseUnary(); }
+      else if (t === '/') { pos++; v /= parseUnary(); }
+      else if (startsPrimary(t)) { v *= parseUnary(); } // multiplicación implícita: 2π, 3(4)
+      else return v;
+    }
+  }
+
+  function parseUnary() {
+    const t = peek();
+    if (t === 'NEG' || t === '-') { pos++; return -parseUnary(); }
+    if (t === '+') { pos++; return parseUnary(); }
+    return parsePower();
+  }
+
+  function parsePower() {
+    let v = parsePostfix();
+    for (;;) {
+      const t = peek();
+      if (t === '^') { pos++; v = v ** parseUnary(); }
+      else if (t === 'xroot') { pos++; const b = parseUnary(); v = b ** (1 / v); }
+      else if (t === 'nCr') { pos++; v = comb(v, parseUnary()); }
+      else if (t === 'nPr') { pos++; v = perm(v, parseUnary()); }
+      else return v;
+    }
+  }
+
+  function parsePostfix() {
+    let v = parsePrimary();
+    for (;;) {
+      const t = peek();
+      if (t === '!') { pos++; v = fact(v); }
+      else if (t === 'sq') { pos++; v *= v; }
+      else if (t === 'cu') { pos++; v **= 3; }
+      else if (t === 'inv') { pos++; v = 1 / v; }
+      else if (t === '%') { pos++; v /= 100; }
+      else return v;
+    }
+  }
+
+  function parsePrimary() {
+    const t = peek();
+    if (t === undefined) syn();
+
+    if (isDigit(t)) {
+      let s = '';
+      while (isDigit(peek())) s += tks[pos++];
+      if (peek() === 'EXP') {
+        pos++;
+        let sign = '';
+        if (peek() === 'NEG' || peek() === '-') { sign = '-'; pos++; }
+        let e = '';
+        while (/^[0-9]$/.test(peek() || '')) e += tks[pos++];
+        if (!e) syn();
+        s += 'e' + sign + e;
+      }
+      if (!/\d/.test(s.split('e')[0]) || (s.match(/\./g) || []).length > 1) syn();
+      return parseFloat(s);
+    }
+
+    if (t === '(') { pos++; const v = parseExpr(); expect(')'); return v; }
+
+    if (t in FUNCS) {
+      pos++; expect('('); const v = parseExpr(); expect(')');
+      return FUNCS[t](v);
+    }
+
+    if (t === 'Pol' || t === 'Rec') {
+      pos++; expect('('); const a = parseExpr(); expect(','); const b = parseExpr(); expect(')');
+      return t === 'Pol' ? pol(a, b) : rec(a, b);
+    }
+
+    pos++;
+    switch (t) {
+      case 'PI': return Math.PI;
+      case 'EULER': return Math.E;
+      case 'ANS': return lastAns;
+      case 'RAN': return Math.random();
+      case 'N': return stats.length;
+      case 'SUMX': return sum(stats);
+      case 'SUMX2': return sum(stats.map(x => x * x));
+      case 'MEAN': return mean();
+      case 'SDP': return sdev(0);
+      case 'SDS': return sdev(1);
+      default:
+        if (t in mem) return mem[t];
+        syn();
+    }
+  }
+
+  function evaluate(list) {
+    tks = list.slice();
+    let open = 0;
+    for (const t of tks) { if (t === '(') open++; else if (t === ')') open--; }
+    while (open-- > 0) tks.push(')');   // cierre automático de paréntesis
+    pos = 0;
+    const v = parseExpr();
+    if (pos !== tks.length) syn();
+    if (!Number.isFinite(v)) math();
+    return v;
+  }
+
+  const evalTokens = () => tokens.length ? evaluate(tokens) : lastAns;
+
+  // ---------- Formato del resultado ----------
+  function fmt(v) {
+    if (v === 0) return '0';
+    const a = Math.abs(v);
+    if (a >= 1e10 || a < 1e-6) {
+      return v.toExponential(9).replace(/\.?0+e/, 'e').replace('e', 'E');
+    }
+    return String(parseFloat(v.toPrecision(10)));
+  }
+
+  // ---------- Edición de la expresión ----------
+  function ins(...t) {
+    if (justEval) {
+      tokens = OPS.has(t[0]) ? ['ANS'] : [];
+      cursor = tokens.length;
+      justEval = false;
+    }
+    tokens.splice(cursor, 0, ...t);
+    cursor += t.length;
+    error = '';
+  }
+
+  function del() {
+    if (justEval) { tokens = []; cursor = 0; result = ''; justEval = false; return; }
+    if (cursor > 0) { tokens.splice(cursor - 1, 1); cursor--; }
+    error = '';
+  }
+
+  function clearAll() {
+    tokens = []; cursor = 0; result = ''; error = '';
+    justEval = false;
+    stoP = rclP = modeP = hypP = false;
+    shift = alpha = false;
+  }
+
+  function evalNow() {
+    try {
+      const v = evalTokens();
+      lastAns = v;
+      result = fmt(v);
+      error = '';
+      justEval = true;
+      cursor = tokens.length;
+    } catch (e) {
+      error = e.message; result = ''; justEval = false;
+    }
+  }
+
+  function storeVar(name) {
+    try {
+      const v = evalTokens();
+      mem[name] = v;
+      tokens = []; cursor = 0;
+      result = fmt(v); error = ''; justEval = true;
+    } catch (e) { error = e.message; }
+  }
+
+  function memOp(sign) {
+    if (mode === 'SD' && sign < 0) { stats.pop(); return; }
+    try {
+      const v = evalTokens();
+      if (mode === 'SD') stats.push(v); else mem.M += sign * v;
+      tokens = []; cursor = 0;
+      result = fmt(v); error = ''; justEval = true;
+    } catch (e) { error = e.message; }
+  }
+
+  function trig(name) {
+    let n = name;
+    if (hypP) { n = name.replace(/^(a?)(sin|cos|tan)$/, '$1$2h'); hypP = false; }
+    ins(n, '(');
+  }
+
+  // ---------- Teclas ----------
+  const K = {};
+  const def = (id, o) => { K[id] = o; };
+
+  for (let d = 0; d <= 9; d++) def('d' + d, { l: String(d), m: () => ins(String(d)) });
+  def('d7', { l: '7', s: 'n', m: () => ins('7'), sh: () => ins('N') });
+  def('d8', { l: '8', s: 'Σx', m: () => ins('8'), sh: () => ins('SUMX') });
+  def('d9', { l: '9', s: 'Σx²', m: () => ins('9'), sh: () => ins('SUMX2') });
+  def('d1', { l: '1', s: 'x̄', m: () => ins('1'), sh: () => ins('MEAN') });
+  def('d2', { l: '2', s: 'xσn', m: () => ins('2'), sh: () => ins('SDP') });
+  def('d3', { l: '3', s: 'xσn-1', m: () => ins('3'), sh: () => ins('SDS') });
+  def('d0', { l: '0', s: 'Rnd', m: () => ins('0'), sh: noop });
+
+  def('inv', { l: 'x⁻¹', s: 'x!', m: () => ins('inv'), sh: () => ins('!') });
+  def('ncr', { l: 'nCr', s: 'nPr', m: () => ins('nCr'), sh: () => ins('nPr') });
+  def('pol', { l: 'Pol(', s: 'Rec(', m: () => ins('Pol', '('), sh: () => ins('Rec', '(') });
+  def('cbrt', { l: '³√', m: () => ins('cbrt', '(') });
+  def('cu', { l: 'x³', m: () => ins('cu') });
+  def('pow', { l: 'xʸ', s: 'ˣ√', m: () => ins('^'), sh: () => ins('xroot') });
+
+  def('eng', { l: 'ENG', m: noop });
+  def('abc', { l: 'a b/c', s: 'd/c', m: noop });
+  def('sqrt', { l: '√', m: () => ins('sqrt', '(') });
+  def('sq', { l: 'x²', m: () => ins('sq') });
+  def('log', { l: 'log', s: '10ˣ', m: () => ins('log', '('), sh: () => ins('pow10', '(') });
+  def('ln', { l: 'ln', s: 'eˣ', m: () => ins('ln', '('), sh: () => ins('exp', '(') });
+
+  def('neg', { l: '(−)', v: 'A', m: () => ins('NEG') });
+  def('deg', { l: '°′″', v: 'B', m: noop });
+  def('hyp', { l: 'hyp', v: 'C', m: () => { hypP = true; } });
+  def('sin', { l: 'sin', s: 'sin⁻¹', v: 'D', m: () => trig('sin'), sh: () => trig('asin') });
+  def('cos', { l: 'cos', s: 'cos⁻¹', v: 'E', m: () => trig('cos'), sh: () => trig('acos') });
+  def('tan', { l: 'tan', s: 'tan⁻¹', v: 'F', m: () => trig('tan'), sh: () => trig('atan') });
+
+  def('sto', { l: 'STO', m: () => { stoP = true; } });
+  def('rcl', { l: 'RCL', m: () => { rclP = true; } });
+  def('lp', { l: '(', m: () => ins('(') });
+  def('rp', { l: ')', v: 'X', m: () => ins(')') });
+  def('comma', { l: ',', v: 'Y', m: () => ins(',') });
+  def('mplus', { l: 'M+', s: 'M−', v: 'M', m: () => memOp(1), sh: () => memOp(-1) });
+
+  def('del', { l: 'DEL', s: 'INS', m: del, sh: noop });
+  def('ac', { l: 'AC', s: 'Mcl', m: clearAll, sh: () => { stats = []; } });
+  def('eq', { l: '=', s: '%', m: evalNow, sh: () => ins('%') });
+
+  def('add', { l: '+', m: () => ins('+') });
+  def('sub', { l: '−', m: () => ins('-') });
+  def('mul', { l: '×', m: () => ins('*') });
+  def('div', { l: '÷', m: () => ins('/') });
+  def('dot', { l: '.', s: 'Ran#', m: () => ins('.'), sh: () => ins('RAN') });
+  def('exp', { l: 'EXP', s: 'π', m: () => ins('EXP'), sh: () => ins('PI') });
+  def('ans', { l: 'Ans', s: 'DRG▶', m: () => ins('ANS'), sh: noop });
+
+  def('left', { l: '◄', m: () => { cursor = Math.max(0, cursor - 1); } });
+  def('right', { l: '►', m: () => { cursor = Math.min(tokens.length, cursor + 1); } });
+  def('mode', { l: 'MODE', m: () => { modeP = true; } });
+  def('on', { l: 'ON', m: clearAll });
+  def('shift', { l: 'SHIFT' });
+  def('alpha', { l: 'ALPHA' });
+
+  // ---------- Despacho de pulsaciones ----------
+  const TRIG_IDS = ['sin', 'cos', 'tan'];
+
+  function handle(id) {
+    const k = K[id];
+    if (!k) return;
+
+    if (id === 'shift') { shift = !shift; alpha = false; return; }
+    if (id === 'alpha') { alpha = !alpha; shift = false; return; }
+
+    if (modeP) {
+      modeP = false;
+      const m = MODES[id];
+      if (m) { if (m[0] === 'mode') mode = m[1]; else angle = m[1]; }
+      return;
+    }
+
+    // STO/RCL seguido de ALPHA + variable
+    if ((stoP || rclP) && alpha && k.v) {
+      alpha = false; shift = false;
+      if (stoP) { stoP = false; storeVar(k.v); }
+      else { rclP = false; ins(k.v); }
+      return;
+    }
+    stoP = rclP = false;
+
+    if (!TRIG_IDS.includes(id) && id !== 'hyp') hypP = false;
+
+    const useShift = shift, useAlpha = alpha;
+    shift = alpha = false;
+
+    if (useShift) (k.sh || noop)();
+    else if (useAlpha) (k.v ? () => ins(k.v) : noop)();
+    else (k.m || noop)();
+  }
+
+  function press(id) {
+    handle(id);
+    render();
+  }
+
+  // ---------- Pantalla ----------
+  const $ = id => document.getElementById(id);
+
+  function render() {
+    $('expr').innerHTML = tokens.map((t, i) =>
+      (i === cursor ? '<span class="caret"></span>' : '') + (DISP[t] || t)
+    ).join('') + (cursor === tokens.length ? '<span class="caret"></span>' : '');
+
+    $('res').textContent = error || result;
+
+    $('ind').textContent = [
+      shift ? 'SHIFT' : '', alpha ? 'ALPHA' : '', hypP ? 'HYP' : '',
+      stoP ? 'STO' : '', rclP ? 'RCL' : '', modeP ? 'MODE?' : '',
+      mode, angle
+    ].filter(Boolean).join(' · ');
+
+    document.querySelector('[data-k="shift"]').classList.toggle('on', shift);
+    document.querySelector('[data-k="alpha"]').classList.toggle('on', alpha);
+  }
+
+  // ---------- Construcción del teclado ----------
+  const LAYOUT = {
+    top: [['shift', 'alpha', 'left', 'right', 'mode', 'on']],
+    sci: [
+      ['inv', 'ncr', 'pol', 'cbrt', 'cu', 'pow'],
+      ['eng', 'abc', 'sqrt', 'sq', 'log', 'ln'],
+      ['neg', 'deg', 'hyp', 'sin', 'cos', 'tan'],
+      ['sto', 'rcl', 'lp', 'rp', 'comma', 'mplus']
+    ],
+    num: [
+      ['d7', 'd8', 'd9', 'del', 'ac'],
+      ['d4', 'd5', 'd6', 'mul', 'div'],
+      ['d1', 'd2', 'd3', 'add', 'sub'],
+      ['d0', 'dot', 'exp', 'ans', 'eq']
+    ]
+  };
+
+  const btn = id => {
+    const k = K[id];
+    return `<button type="button" data-k="${id}">` +
+      (k.s ? `<i class="s">${k.s}</i>` : '') +
+      `<b>${k.l}</b>` +
+      (k.v ? `<i class="a">${k.v}</i>` : '') +
+      `</button>`;
+  };
+
+  for (const [box, rows] of Object.entries(LAYOUT)) {
+    const el = $(box);
+    el.innerHTML = rows.flat().map(btn).join('');
+  }
+
+  // Digits 0-4 con 'd' antes en teclado físico
+  $('calc').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (b) press(b.dataset.k);
+  });
+
+  const KEYMAP = {
+    '+': 'add', '-': 'sub', '*': 'mul', '/': 'div', '.': 'dot',
+    '(': 'lp', ')': 'rp', ',': 'comma', '^': 'pow',
+    Enter: 'eq', '=': 'eq', Backspace: 'del', Delete: 'del', Escape: 'ac',
+    ArrowLeft: 'left', ArrowRight: 'right'
+  };
+  window.addEventListener('keydown', e => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const id = /^[0-9]$/.test(e.key) ? 'd' + e.key : KEYMAP[e.key];
+    if (!id) return;
+    e.preventDefault();
+    press(id);
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
