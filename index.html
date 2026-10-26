@@ -1106,7 +1106,7 @@
     } catch (err) { showRes(err.message, 'err'); }
   }
 
-  // Tokens de la calculadora después de los cuales no hace falta multiplicar implícitamente
+  // Tokens de la calculadora después de los cuales no hace falta añadir un operador
   const CALC_OPERATOR_TOKENS = new Set(['NEG', '+', '-', '*', '/', '^', 'xroot', 'nCr', 'nPr', '(', ',', 'EXP']);
 
   // Tokens de la calculadora para escribir un número: dígitos, punto, signo (NEG) y exponente (EXP)
@@ -1133,8 +1133,8 @@
     }
     const before = tokens[cursor - 1];
     const num = valueTokens(v);
-    // Si justo antes hay un número o paréntesis, se multiplica para no unir dígitos
-    const add = before !== undefined && !CALC_OPERATOR_TOKENS.has(before) ? ['*', ...num] : num;
+    // Si justo antes hay un valor (p. ej. "8"), se suma por defecto; si ya hay operador ("8-", "8*", "8/"), se usa ese
+    const add = before !== undefined && !CALC_OPERATOR_TOKENS.has(before) ? ['+', ...num] : num;
     tokens.splice(cursor, 0, ...add);
     cursor += add.length;
     result = '';
