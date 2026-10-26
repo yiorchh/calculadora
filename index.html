@@ -525,7 +525,7 @@
     el.innerHTML = rows.flat().map(btn).join('');
   }
 
-  // Digits 0-4 con 'd' antes en teclado físico
+  // Delegación de clics: cada botón lleva su id en data-k
   $('calc').addEventListener('click', e => {
     const b = e.target.closest('button');
     if (b) press(b.dataset.k);
