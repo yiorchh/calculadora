@@ -138,7 +138,7 @@
   .kb { display: grid; gap: 4px; margin-top: 10px; }
   .kb-row { display: flex; justify-content: center; gap: 4px; }
   .kb-row button { flex: 0 0 calc(10% - 4px); height: 38px; padding: 0; font-size: 14px; }
-  .kb-ops { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+  .kb-ops { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
   #eqKb button { height: 38px; }
   #eqKb button.on { background: #cfcfcf; }
 
@@ -220,7 +220,7 @@
     pow10: '10ˣ', exp: 'eˣ', asin: 'sin⁻¹', acos: 'cos⁻¹', atan: 'tan⁻¹',
     asinh: 'sinh⁻¹', acosh: 'cosh⁻¹', atanh: 'tanh⁻¹', EXP: 'EXP', EULER: 'e', PI: 'π',
     ANS: 'Ans', RAN: 'Ran#', N: 'n', SUMX: 'Σx', SUMX2: 'Σx²', MEAN: 'x̄', SDP: 'xσn',
-    SDS: 'xσn-1', xroot: 'ˣ√', nCr: 'C', nPr: 'P', Pol: 'Pol', Rec: 'Rec'
+    SDS: 'xσn-1', xroot: 'ˣ√', nCr: 'nCr', nPr: 'nPr', Pol: 'Pol', Rec: 'Rec'
   };
   const MODES = {
     d1: ['mode', 'COMP'], d2: ['mode', 'SD'],
@@ -1059,7 +1059,9 @@
   }
 
   // Recalcula con los valores actuales; no toca la expresión guardada
+  let eqValue = null;   // último resultado válido de la ecuación abierta
   function recalc() {
+    eqValue = null;
     const inputs = {};
     $('eqVars').querySelectorAll('input').forEach(i => { inputs[i.dataset.v] = i; });
     const env = {};
@@ -1076,8 +1078,24 @@
     if (!cur.tree) return showRes(cur.err, 'hint');
     if (invalid.length) return showRes('Valor no válido en ' + invalid.join(', '), 'err');
     if (missing.length) return showRes('Falta valor de ' + missing.join(', '), 'hint');
-    try { showRes(fmt(evaluateEquation(cur.tree, env)), ''); }
-    catch (err) { showRes(err.message, 'err'); }
+    try {
+      eqValue = evaluateEquation(cur.tree, env);
+      showRes(fmt(eqValue), '');
+    } catch (err) { showRes(err.message, 'err'); }
+  }
+
+  // Calcular: muestra el resultado y lo pasa a la calculadora normal como valor actual y Ans
+  function calcAndSend() {
+    recalc();
+    if (eqValue === null) return;
+    lastAns = eqValue;
+    tokens = [];
+    cursor = 0;
+    error = '';
+    result = fmt(eqValue);
+    justEval = true;
+    setView('calc');
+    render();
   }
 
   // ---------- Edición de la expresión (cursor) ----------
@@ -1139,11 +1157,13 @@
         const ch = kbLower ? L.toLowerCase() : L;
         return kbKey(ch, () => insertEq(ch));
       });
-      if (i === EQ_LETTERS.length - 1) keys.unshift(kbKey('⇧', toggleCase, kbLower ? 'on' : ''));
       addRow('kb-row', keys);
     });
     const ops = EQ_OPS.map(([label, text]) => kbKey(label, () => insertEq(text)));
-    ops.push(kbKey('AC', clearExpr), kbKey('◄', () => moveCursor(-1)), kbKey('►', () => moveCursor(1)), kbKey('DEL', deleteEq));
+    ops.push(
+      kbKey(kbLower ? 'ABC' : 'abc', toggleCase, kbLower ? 'on' : ''),
+      kbKey('AC', clearExpr), kbKey('◄', () => moveCursor(-1)), kbKey('►', () => moveCursor(1)), kbKey('DEL', deleteEq)
+    );
     addRow('kb-ops', ops);
   }
 
@@ -1172,7 +1192,7 @@
   $('eqCancel').addEventListener('click', cancelEdit);
   $('eqDup').addEventListener('click', duplicateEq);
   $('eqDel').addEventListener('click', removeEq);
-  $('eqCalc').addEventListener('click', recalc);
+  $('eqCalc').addEventListener('click', calcAndSend);
   $('eqVars').addEventListener('input', e => {
     const v = e.target.dataset.v;
     if (!v) return;
