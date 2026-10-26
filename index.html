@@ -644,15 +644,14 @@
   const STORE_KEY = 'calc.equations.v1';
   const CONSTS = { 'π': Math.PI, e: Math.E };          // constantes: valor inicial editable
   const FN_NAMES = ['asinh', 'acosh', 'atanh', 'asin', 'acos', 'atan', 'sinh', 'cosh', 'tanh',
-    'sin', 'cos', 'tan', 'log', 'ln', 'sqrt', 'cbrt', 'exp', 'C', 'P'];
-  const FN_ARGS = { C: 2, P: 2 };
+    'sin', 'cos', 'tan', 'log', 'ln', 'sqrt', 'cbrt', 'exp'];
   const NUM_RE = /^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i;
   const EQ_DIGITS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
   const EQ_LETTERS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
   const EQ_OPS = [
     ['(', '('], [')', ')'], [',', ','], ['!', '!'], ['^', '^'], ['π', 'π'],
     ['sin', 'sin('], ['cos', 'cos('], ['tan', 'tan('], ['√', 'sqrt('], ['ln', 'ln('], ['log', 'log('],
-    ['C(', 'C('], ['P(', 'P('], ['e', 'e'], ['+', '+'], ['−', '-'], ['×', '*'],
+    ['nCr', ' nCr '], ['nPr', ' nPr '], ['e', 'e'], ['+', '+'], ['−', '-'], ['×', '*'],
     ['÷', '/'], ['.', '.']
   ];
   const EQ_CHAR_RE = /^[A-Za-z0-9.+\-*/^()!,]$/;
@@ -675,7 +674,16 @@
         : [];
     } catch (err) { return []; }
   }
-  let equations = loadEquations();
+  // Convierte la notación antigua C(n,r) / P(n,r) de ecuaciones guardadas a n nCr r / n nPr r
+  function migrateExpr(s) {
+    const step = t => t.replace(/(^|[^A-Za-z])([CP])\(([^(),]*),([^()]*)\)/g,
+      (m, pre, f, a, b) => `${pre}(${a.trim()}) ${f === 'C' ? 'nCr' : 'nPr'} (${b.trim()})`);
+    let out = s;
+    let next = step(out);
+    while (next !== out) { out = next; next = step(out); }
+    return out;
+  }
+  let equations = loadEquations().map(x => ({ ...x, expr: migrateExpr(x.expr) }));
   let storageOk = true;
   function persist() {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(equations)); storageOk = true; }
@@ -697,6 +705,11 @@
         if (!m || src[i + m[1].length] === '.') bad('Número mal formado');
         out.push({ t: 'num', v: parseFloat(m[1]) });
         i += m[1].length;
+        continue;
+      }
+      if (src.startsWith('nCr', i) || src.startsWith('nPr', i)) {
+        out.push({ t: 'op', v: src.slice(i, i + 3) });   // operador infijo, como la tecla nCr/nPr
+        i += 3;
         continue;
       }
       if (/[A-Za-zπ]/.test(ch)) {
@@ -743,7 +756,8 @@
       return power();
     }
     function power() {
-      const base = postfix();
+      let base = postfix();
+      while (isOp('nCr') || isOp('nPr')) { const op = toks[p++].v; base = { t: 'bin', op, a: base, b: postfix() }; }
       if (isOp('^')) { p++; return { t: 'bin', op: '^', a: base, b: unary() }; }
       return base;
     }
@@ -760,11 +774,9 @@
       if (tk.t === 'fn') {
         p++;
         expect('(');
-        const args = [expr()];
-        while (isOp(',')) { p++; args.push(expr()); }
+        const arg = expr();
         expect(')');
-        if (args.length !== (FN_ARGS[tk.n] || 1)) bad('Número de argumentos incorrecto en ' + tk.n + '()');
-        return { t: 'fn', n: tk.n, args };
+        return { t: 'fn', n: tk.n, args: [arg] };
       }
       if (isOp('(')) { p++; const n = expr(); expect(')'); return n; }
       bad('Expresión mal formada');
@@ -805,16 +817,14 @@
         if (node.op === '-') return a - b;
         if (node.op === '*') return a * b;
         if (node.op === '/') { if (b === 0) bad('División por cero'); return a / b; }
+        if (node.op === 'nCr' || node.op === 'nPr') {
+          if (!isNat(a) || !isNat(b) || b > a || a > 170) bad('Argumento inválido en ' + node.op + ': n y r deben ser enteros con 0 ≤ r ≤ n ≤ 170');
+          return node.op === 'nCr' ? comb(a, b) : perm(a, b);
+        }
         return a ** b;
       }
       case 'fn': {
-        const x = node.args.map(a => evalTree(a, env));
-        if (node.n === 'C' || node.n === 'P') {
-          const [n, r] = x;
-          if (!isNat(n) || !isNat(r) || r > n || n > 170) bad('Argumento inválido en ' + node.n + '(n,r): n y r deben ser enteros con 0 ≤ r ≤ n ≤ 170');
-          return node.n === 'C' ? comb(n, r) : perm(n, r);
-        }
-        const r = FUNCS[node.n](x[0]);
+        const r = FUNCS[node.n](evalTree(node.args[0], env));
         if (!Number.isFinite(r)) bad('Valor fuera de dominio en ' + node.n + '()');
         return r;
       }
@@ -1082,9 +1092,10 @@
   function deleteEq() {
     if (!eq.editing || eq.cursor === 0) return;
     const before = eq.expr.slice(0, eq.cursor);
-    // Borra una función entera (p. ej. "sin(") en lugar de un carácter suelto
+    // Borra un token entero (p. ej. "sin(" o " nCr ") en lugar de un carácter suelto
     const fn = FN_NAMES.slice().sort((a, b) => b.length - a.length).find(n => before.endsWith(n + '('));
-    const len = fn ? fn.length + 1 : 1;
+    const word = [' nCr ', ' nPr '].find(w => before.endsWith(w));
+    const len = fn ? fn.length + 1 : word ? word.length : 1;
     eq.expr = before.slice(0, -len) + eq.expr.slice(eq.cursor);
     eq.cursor -= len;
     renderEditor();
