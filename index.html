@@ -136,10 +136,12 @@
   .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 12px; }
   .msg { font-size: 13px; min-height: 18px; margin-top: 8px; color: #333; }
   .kb { display: grid; gap: 4px; margin-top: 10px; }
-  .kb-row { display: flex; justify-content: center; gap: 4px; }
-  .kb-row button { flex: 0 0 calc(10% - 4px); height: 38px; padding: 0; font-size: 14px; }
-  .kb-ops { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
-  #eqKb button { height: 38px; }
+  .kb-top, .kb-fn { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+  .kb-pad { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+  .kb-letters { display: flex; justify-content: center; gap: 4px; }
+  .kb-letters button { flex: 0 0 calc(10% - 4px); }
+  #eqKb button:disabled { opacity: .35; }
+  #eqKb button { height: 38px; font-size: 13px; padding: 0; min-width: 0; }
   #eqKb button.on { background: #cfcfcf; }
 
   @media (max-width: 359px) {
@@ -220,7 +222,7 @@
     pow10: '10ˣ', exp: 'eˣ', asin: 'sin⁻¹', acos: 'cos⁻¹', atan: 'tan⁻¹',
     asinh: 'sinh⁻¹', acosh: 'cosh⁻¹', atanh: 'tanh⁻¹', EXP: 'EXP', EULER: 'e', PI: 'π',
     ANS: 'Ans', RAN: 'Ran#', N: 'n', SUMX: 'Σx', SUMX2: 'Σx²', MEAN: 'x̄', SDP: 'xσn',
-    SDS: 'xσn-1', xroot: 'ˣ√', nCr: 'nCr', nPr: 'nPr', Pol: 'Pol', Rec: 'Rec'
+    SDS: 'xσn-1', xroot: 'ˣ√', nCr: 'C', nPr: 'P', Pol: 'Pol', Rec: 'Rec'
   };
   const MODES = {
     d1: ['mode', 'COMP'], d2: ['mode', 'SD'],
@@ -646,15 +648,10 @@
   const FN_NAMES = ['asinh', 'acosh', 'atanh', 'asin', 'acos', 'atan', 'sinh', 'cosh', 'tanh',
     'sin', 'cos', 'tan', 'log', 'ln', 'sqrt', 'cbrt', 'exp'];
   const NUM_RE = /^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i;
-  const EQ_DIGITS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
   const EQ_LETTERS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
-  const EQ_OPS = [
-    ['(', '('], [')', ')'], [',', ','], ['!', '!'], ['^', '^'], ['π', 'π'],
-    ['sin', 'sin('], ['cos', 'cos('], ['tan', 'tan('], ['√', 'sqrt('], ['ln', 'ln('], ['log', 'log('],
-    ['nCr', ' nCr '], ['nPr', ' nPr '], ['e', 'e'], ['+', '+'], ['−', '-'], ['×', '*'],
-    ['÷', '/'], ['.', '.']
-  ];
   const EQ_CHAR_RE = /^[A-Za-z0-9.+\-*/^()!,]$/;
+  const DEL_TOKENS = [...FN_NAMES.map(n => n + '('), '^(-1)', '^2', '^3', ' nCr ', ' nPr ']
+    .sort((a, b) => b.length - a.length);
 
   const eq = { open: false, id: null, name: '', expr: '', saved: null, editing: false, cursor: 0, values: {} };
   let cur = { tree: null, err: '', vars: [] };   // análisis de la expresión de trabajo
@@ -1110,10 +1107,9 @@
   function deleteEq() {
     if (!eq.editing || eq.cursor === 0) return;
     const before = eq.expr.slice(0, eq.cursor);
-    // Borra un token entero (p. ej. "sin(" o " nCr ") en lugar de un carácter suelto
-    const fn = FN_NAMES.slice().sort((a, b) => b.length - a.length).find(n => before.endsWith(n + '('));
-    const word = [' nCr ', ' nPr '].find(w => before.endsWith(w));
-    const len = fn ? fn.length + 1 : word ? word.length : 1;
+    // Borra un token entero (p. ej. "sin(", " nCr " o "^2") en lugar de un carácter suelto
+    const tok = DEL_TOKENS.find(w => before.endsWith(w));
+    const len = tok ? tok.length : 1;
     eq.expr = before.slice(0, -len) + eq.expr.slice(eq.cursor);
     eq.cursor -= len;
     renderEditor();
@@ -1132,39 +1128,57 @@
     renderEditor();
   }
 
-  // ---------- Teclado virtual (QWERTY, números arriba, operaciones abajo) ----------
-  function kbKey(label, action, cls) {
+  // ---------- Teclado virtual: misma disposición que la calculadora, letras debajo ----------
+  const kbKeyEl = k => {
     const b = document.createElement('button');
     b.type = 'button';
-    b.textContent = label;
-    if (cls) b.className = cls;
-    b.addEventListener('click', action);
+    b.textContent = k.l;
+    if (k.on) b.className = 'on';
+    if (k.dis) b.disabled = true;
+    else b.addEventListener('click', () => (k.act ? k.act() : insertEq(k.t)));
     return b;
+  };
+
+  // Teclas sin función en EQUATIONS (ENG, a b/c, Pol(, hyp, Ans...) se muestran deshabilitadas
+  function kbLayout() {
+    const letters = EQ_LETTERS.map(row => [...row].map(L => {
+      const ch = kbLower ? L.toLowerCase() : L;
+      return { l: ch, t: ch };
+    }));
+    return [
+      { cls: 'kb-top', rows: [[
+        { l: 'SHIFT', dis: true }, { l: 'ALPHA', dis: true },
+        { l: '◄', act: () => moveCursor(-1) }, { l: '►', act: () => moveCursor(1) },
+        { l: kbLower ? 'ABC' : 'abc', act: toggleCase, on: kbLower },
+        { l: 'ON', act: clearExpr }
+      ]] },
+      { cls: 'kb-fn', rows: [
+        [{ l: 'x⁻¹', t: '^(-1)' }, { l: 'nCr', t: ' nCr ' }, { l: 'Pol(', dis: true }, { l: '³√', t: 'cbrt(' }, { l: 'x³', t: '^3' }, { l: 'xʸ', t: '^' }],
+        [{ l: 'ENG', dis: true }, { l: 'a b/c', dis: true }, { l: '√', t: 'sqrt(' }, { l: 'x²', t: '^2' }, { l: 'log', t: 'log(' }, { l: 'ln', t: 'ln(' }],
+        [{ l: '(−)', t: '-' }, { l: '°′″', dis: true }, { l: 'hyp', dis: true }, { l: 'sin', t: 'sin(' }, { l: 'cos', t: 'cos(' }, { l: 'tan', t: 'tan(' }],
+        [{ l: '!', t: '!' }, { l: 'nPr', t: ' nPr ' }, { l: '(', t: '(' }, { l: ')', t: ')' }, { l: ',', t: ',' }, { l: 'e', t: 'e' }]
+      ] },
+      { cls: 'kb-pad', rows: [
+        [{ l: '7', t: '7' }, { l: '8', t: '8' }, { l: '9', t: '9' }, { l: 'DEL', act: deleteEq }, { l: 'AC', act: clearExpr }],
+        [{ l: '4', t: '4' }, { l: '5', t: '5' }, { l: '6', t: '6' }, { l: '×', t: '*' }, { l: '÷', t: '/' }],
+        [{ l: '1', t: '1' }, { l: '2', t: '2' }, { l: '3', t: '3' }, { l: '+', t: '+' }, { l: '−', t: '-' }],
+        [{ l: '0', t: '0' }, { l: '.', t: '.' }, { l: 'π', t: 'π' }, { l: 'Ans', dis: true }, { l: '=', act: calcAndSend }]
+      ] },
+      { cls: 'kb-letters', rows: letters }
+    ];
   }
 
   function buildKeyboard() {
     const kb = $('eqKb');
     kb.textContent = '';
-    const addRow = (cls, keys) => {
-      const row = document.createElement('div');
-      row.className = cls;
-      keys.forEach(k => row.append(k));
-      kb.append(row);
-    };
-    addRow('kb-row', EQ_DIGITS.map(d => kbKey(d, () => insertEq(d))));
-    EQ_LETTERS.forEach((letters, i) => {
-      const keys = [...letters].map(L => {
-        const ch = kbLower ? L.toLowerCase() : L;
-        return kbKey(ch, () => insertEq(ch));
-      });
-      addRow('kb-row', keys);
-    });
-    const ops = EQ_OPS.map(([label, text]) => kbKey(label, () => insertEq(text)));
-    ops.push(
-      kbKey(kbLower ? 'ABC' : 'abc', toggleCase, kbLower ? 'on' : ''),
-      kbKey('AC', clearExpr), kbKey('◄', () => moveCursor(-1)), kbKey('►', () => moveCursor(1)), kbKey('DEL', deleteEq)
-    );
-    addRow('kb-ops', ops);
+    for (const block of kbLayout()) {
+      for (const row of block.rows) {
+        const r = document.createElement('div');
+        r.className = block.cls;
+        row.forEach(k => r.append(kbKeyEl(k)));
+        kb.append(r);
+      }
+    }
   }
 
   function toggleCase() {
