@@ -89,13 +89,13 @@
   [hidden] { display: none !important; }
 
   /* Pestañas CALCULADORA / EQUATIONS */
-  .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+  .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 10px; }
   .tabs button { height: 36px; font-size: 13px; letter-spacing: .04em; }
   .tabs button.on { background: #cfcfcf; font-weight: 600; }
 
   /* EQUATIONS */
-  #viewEq button { height: 40px; font-size: 14px; }
-  #viewEq input {
+  #viewEq button, #viewGr button { height: 40px; font-size: 14px; }
+  #viewEq input, #viewGr input {
     width: 100%;
     height: 40px;
     padding: 0 10px;
@@ -106,7 +106,14 @@
     background: var(--key);
     color: var(--ink);
   }
-  #viewEq input.bad { border-color: var(--alpha); }
+  #viewEq input.bad, #viewGr input.bad { border-color: var(--alpha); }
+  .gr-row { display: grid; grid-template-columns: 1fr 1fr 40px; gap: 6px; margin-bottom: 6px; }
+  .gr-row button { padding: 0; }
+  .gr-cols { display: grid; grid-template-columns: 1fr 1fr 40px; gap: 6px; font-size: 12px; color: #444; margin: 10px 0 4px; }
+  .gr-set { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .gr-set label { display: grid; gap: 3px; font-size: 12px; color: #444; }
+  .gr-info { font-size: 14px; margin-top: 10px; display: grid; gap: 4px; }
+  .gr-info .err { color: var(--alpha); }
   #eqSearch { margin-bottom: 8px; }
   .eq-list { display: grid; gap: 6px; }
   .eq-item { height: auto !important; padding: 8px 10px; text-align: left; display: grid; gap: 2px; }
@@ -160,6 +167,7 @@
   <nav class="tabs">
     <button type="button" data-view="calc" class="on">CALCULADORA</button>
     <button type="button" data-view="eq">EQUATIONS</button>
+    <button type="button" data-view="gr">NOTAS</button>
   </nav>
 
   <div id="viewCalc">
@@ -178,6 +186,27 @@
     <div class="hist-head"><span class="lbl">Historial</span><button type="button" id="histClear">Borrar</button></div>
     <div id="hist"></div>
   </div>
+
+  <section id="viewGr" hidden>
+    <div class="screen">
+      <div class="ind" id="grInd">PROMEDIO PONDERADO</div>
+      <div class="expr" id="grExpr"></div>
+      <div class="res" id="grRes"></div>
+    </div>
+    <div class="gr-cols"><span>Nota</span><span>Ponderación (%)</span><span></span></div>
+    <div id="grRows"></div>
+    <div class="actions">
+      <button type="button" id="grAdd">+ Agregar nota</button>
+      <button type="button" id="grFill">+ Nota que falta</button>
+    </div>
+    <div class="gr-set" style="margin-top:12px">
+      <label>Nota objetivo<input id="grTarget" type="text" inputmode="decimal" autocomplete="off" placeholder="4"></label>
+      <label>Mínima<input id="grMin" type="text" inputmode="decimal" autocomplete="off"></label>
+      <label>Máxima<input id="grMax" type="text" inputmode="decimal" autocomplete="off"></label>
+    </div>
+    <div class="gr-info" id="grInfo"></div>
+    <div class="actions"><button type="button" id="grClear">Limpiar todo</button></div>
+  </section>
 
   <section id="viewEq" hidden>
     <div id="eqListBox">
@@ -437,6 +466,21 @@
     error = '';
   }
 
+  // ENG: muestra el resultado con exponente múltiplo de 3 (ENG sube, SHIFT+ENG baja)
+  let engExp = null;
+  function fmtEng(v, e) {
+    const m = parseFloat((v / Math.pow(10, e)).toPrecision(10));
+    return e === 0 ? String(m) : m + 'E' + e;
+  }
+  function engStep(dir) {
+    if (!justEval || !Number.isFinite(lastAns) || lastAns === 0) return;
+    if (engExp === null) {
+      const e10 = parseInt(lastAns.toExponential().split('e')[1], 10);
+      engExp = Math.floor(e10 / 3) * 3 + (dir < 0 ? -3 : 0);
+    } else engExp += 3 * dir;
+    result = fmtEng(lastAns, engExp);
+  }
+
   function clearAll() {
     tokens = []; cursor = 0; result = ''; error = '';
     justEval = false;
@@ -503,7 +547,7 @@
   def('cu', { l: 'x³', m: () => ins('cu') });
   def('pow', { l: 'xʸ', s: 'ˣ√', m: () => ins('^'), sh: () => ins('xroot') });
 
-  def('eng', { l: 'ENG', m: noop });
+  def('eng', { l: 'ENG', s: 'ENG←', m: () => engStep(1), sh: () => engStep(-1) });
   def('abc', { l: 'a b/c', s: 'd/c', m: noop });
   def('sqrt', { l: '√', m: () => ins('sqrt', '(') });
   def('sq', { l: 'x²', m: () => ins('sq') });
@@ -570,6 +614,8 @@
     stoP = rclP = false;
 
     if (!TRIG_IDS.includes(id) && id !== 'hyp') hypP = false;
+
+    if (id !== 'eng') engExp = null;
 
     const useShift = shift, useAlpha = alpha;
     shift = alpha = false;
@@ -907,6 +953,7 @@
     view = v;
     $('viewCalc').hidden = v !== 'calc';
     $('viewEq').hidden = v !== 'eq';
+    $('viewGr').hidden = v !== 'gr';
     $('histBox').hidden = v !== 'calc';
     document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.view === v));
     if (v === 'eq') { if (eq.open) renderEditor(); else renderList(); }
@@ -1365,6 +1412,146 @@
     else if (e.key.length === 1 && EQ_CHAR_RE.test(e.key)) { e.preventDefault(); insertEq(e.key); }
   });
 
+
+  // ---------- NOTAS: promedio ponderado ----------
+  const GR_KEY = 'calc.grades.v1';
+  let gr = { min: '1', max: '7', target: '4', rows: [{ n: '', w: '' }] };
+  try {
+    const raw = JSON.parse(localStorage.getItem(GR_KEY));
+    if (raw && Array.isArray(raw.rows) && raw.rows.length) {
+      gr = {
+        min: String(raw.min ?? '1'), max: String(raw.max ?? '7'), target: String(raw.target ?? ''),
+        rows: raw.rows.map(r => ({ n: String(r.n ?? ''), w: String(r.w ?? '') }))
+      };
+    }
+  } catch (e) { /* sin almacenamiento */ }
+  const grSave = () => { try { localStorage.setItem(GR_KEY, JSON.stringify(gr)); } catch (e) { /* ignorar */ } };
+
+  // '' → null (vacío), texto no numérico → NaN
+  function grNum(t) {
+    const s = String(t).trim().replace(',', '.');
+    if (s === '') return null;
+    return /^(\d+\.?\d*|\.\d+)$/.test(s) ? parseFloat(s) : NaN;
+  }
+  const grFmt = x => String(parseFloat(x.toFixed(4)));
+  const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  function grRowsHtml() {
+    $('grRows').innerHTML = gr.rows.map((r, i) =>
+      '<div class="gr-row">' +
+      '<input data-i="' + i + '" data-f="n" type="text" inputmode="decimal" autocomplete="off" placeholder="?" value="' + esc(r.n) + '">' +
+      '<input data-i="' + i + '" data-f="w" type="text" inputmode="decimal" autocomplete="off" placeholder="%" value="' + esc(r.w) + '">' +
+      '<button type="button" data-del="' + i + '" aria-label="Quitar">✕</button></div>'
+    ).join('');
+  }
+
+  // Calcula y pinta el resultado sin recrear los campos (para no perder el foco)
+  function grUpdate() {
+    const min = grNum(gr.min), max = grNum(gr.max), target = grNum(gr.target);
+    const errs = [];
+    const inputs = $('grRows').querySelectorAll('input');
+    inputs.forEach(el => el.classList.remove('bad'));
+    const bad = (i, f, msg) => {
+      const el = $('grRows').querySelector('input[data-i="' + i + '"][data-f="' + f + '"]');
+      if (el) el.classList.add('bad');
+      errs.push(msg);
+    };
+    const setBad = (id, on) => $(id).classList.toggle('bad', on);
+    const rangeOk = min !== null && max !== null && !Number.isNaN(min) && !Number.isNaN(max) && min < max;
+    setBad('grMin', !rangeOk); setBad('grMax', !rangeOk);
+    if (!rangeOk) errs.push('La escala debe tener mínima menor que máxima.');
+    setBad('grTarget', Number.isNaN(target));
+    if (Number.isNaN(target)) errs.push('La nota objetivo no es un número válido.');
+
+    let sumW = 0, known = 0, knownW = 0, unW = 0;
+    const unknown = [];
+    gr.rows.forEach((r, i) => {
+      const n = grNum(r.n), w = grNum(r.w);
+      if (Number.isNaN(w)) { bad(i, 'w', 'Fila ' + (i + 1) + ': ponderación no válida.'); return; }
+      if (Number.isNaN(n)) { bad(i, 'n', 'Fila ' + (i + 1) + ': nota no válida.'); return; }
+      if (w !== null && w > 100) { bad(i, 'w', 'Fila ' + (i + 1) + ': la ponderación no puede superar 100%.'); return; }
+      if (n !== null && rangeOk && (n < min || n > max)) {
+        bad(i, 'n', 'Fila ' + (i + 1) + ': la nota debe estar entre ' + grFmt(min) + ' y ' + grFmt(max) + '.');
+        return;
+      }
+      if (w === null) {
+        if (n !== null) bad(i, 'w', 'Fila ' + (i + 1) + ': falta la ponderación.');
+        return;
+      }
+      sumW += w;
+      if (n === null) { unknown.push({ i, w }); unW += w; }
+      else { known += n * w / 100; knownW += w; }
+    });
+
+    sumW = Math.round(sumW * 1e6) / 1e6;
+    const full = sumW === 100;
+    const info = [];
+    if (sumW > 100) errs.push('Las ponderaciones suman ' + grFmt(sumW) + '%: se pasan por ' + grFmt(sumW - 100) + '%.');
+    else if (sumW < 100) errs.push('Las ponderaciones suman ' + grFmt(sumW) + '%: faltan ' + grFmt(100 - sumW) + '% para llegar a 100%.');
+    $('grFill').disabled = sumW >= 100;
+
+    let res = '', cls = '';
+    if (full && !unknown.length && knownW > 0 && !errs.length) {
+      res = grFmt(known);
+      info.push('Nota final: ' + grFmt(known) + (target !== null && !Number.isNaN(target)
+        ? (known >= target ? ' (alcanza el objetivo ' + grFmt(target) + ')' : ' (no alcanza el objetivo ' + grFmt(target) + ')') : ''));
+    } else if (knownW > 0) {
+      info.push('Acumulado: ' + grFmt(known) + ' (sobre ' + grFmt(knownW) + '% de la nota).');
+      info.push('Promedio de lo rendido: ' + grFmt(known / (knownW / 100)) + '.');
+    }
+    if (target !== null && !Number.isNaN(target) && unknown.length && full && !errs.length) {
+      const need = (target - known) / (unW / 100);
+      const who = unknown.length === 1
+        ? 'en la nota de la fila ' + (unknown[0].i + 1) + ' (' + grFmt(unW) + '%)'
+        : 'en cada una de las ' + unknown.length + ' notas que faltan (' + grFmt(unW) + '% en total)';
+      res = grFmt(need); cls = '';
+      if (need > max) { info.push('Para llegar a ' + grFmt(target) + ' necesitas ' + grFmt(need) + ' ' + who + ', más que la máxima (' + grFmt(max) + '): no es alcanzable.'); cls = 'err'; }
+      else if (need < min) { info.push('Para llegar a ' + grFmt(target) + ' basta con ' + grFmt(min) + ' (la mínima) ' + who + ': ya lo tienes asegurado.'); res = grFmt(min); }
+      else info.push('Para llegar a ' + grFmt(target) + ' necesitas ' + grFmt(need) + ' ' + who + '.');
+    } else if (unknown.length && !full) {
+      info.push('Completa las ponderaciones hasta 100% para calcular la nota que necesitas.');
+    }
+
+    $('grExpr').textContent = 'Σ ponderación ' + grFmt(sumW) + '%';
+    $('grRes').textContent = res;
+    $('grRes').className = 'res' + (cls ? ' ' + cls : '');
+    $('grInfo').innerHTML = errs.map(e => '<div class="err">' + esc(e) + '</div>').join('') +
+      info.map(t => '<div>' + esc(t) + '</div>').join('');
+  }
+
+  function grRender() { grRowsHtml(); $('grMin').value = gr.min; $('grMax').value = gr.max; $('grTarget').value = gr.target; grUpdate(); }
+
+  $('viewGr').addEventListener('input', e => {
+    const t = e.target;
+    if (t.dataset.f) gr.rows[+t.dataset.i][t.dataset.f] = t.value;
+    else if (t.id === 'grMin') gr.min = t.value;
+    else if (t.id === 'grMax') gr.max = t.value;
+    else if (t.id === 'grTarget') gr.target = t.value;
+    else return;
+    grSave(); grUpdate();
+  });
+  $('viewGr').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.del !== undefined) {
+      gr.rows.splice(+b.dataset.del, 1);
+      if (!gr.rows.length) gr.rows.push({ n: '', w: '' });
+    } else if (b.id === 'grAdd') gr.rows.push({ n: '', w: '' });
+    else if (b.id === 'grFill') {
+      let sum = 0;
+      gr.rows.forEach(r => { const w = grNum(r.w); if (w) sum += w; });
+      const rest = Math.round((100 - sum) * 1e6) / 1e6;
+      if (rest <= 0) return;
+      // Si la última fila está vacía, la usa en vez de crear otra
+      const last = gr.rows[gr.rows.length - 1];
+      if (last.n === '' && last.w === '') last.w = grFmt(rest);
+      else gr.rows.push({ n: '', w: grFmt(rest) });
+    } else if (b.id === 'grClear') gr.rows = [{ n: '', w: '' }];
+    else return;
+    grSave(); grRender();
+  });
+
+  grRender();
   showList();
   setView('calc');
 

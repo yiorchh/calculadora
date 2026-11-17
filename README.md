@@ -19,6 +19,7 @@ Teclado físico: dígitos, `+ - * /`, `( ) , . ^`, `Enter` para `=`, `Backspace`
 - **Memoria**: `STO` / `RCL` seguido de `ALPHA` + variable (`A B C D E F X Y M`), `M+` y `M−`, `Ans`.
 - **Estadística** (`MODE` + `2`): `M+` agrega datos, `SHIFT` + `M+` quita el último, `n`, `Σx`, `Σx²`, `x̄`, `xσn`, `xσn-1`. `SHIFT` + `AC` (Mcl) borra los datos.
 - **Constantes**: `π` (SHIFT + EXP) y `Ran#` (SHIFT + `.`).
+- **ENG**: tras un resultado, `ENG` lo muestra con exponente múltiplo de 3 (`12345` → `12.345E3`); otra pulsación sube el exponente y `SHIFT` + `ENG` lo baja.
 - **Edición**: `◄ ►` (REPLAY) mueven el cursor, `DEL` borra antes del cursor.
 
 ## EQUATIONS (ecuaciones personalizadas)
@@ -37,9 +38,19 @@ La pestaña **EQUATIONS** permite crear, guardar, buscar, abrir, editar, duplica
 
 Ejemplo de uso (no viene precargado): `(K nCr x)*((N-K) nCr (n-x))/(N nCr n)` con nombre `Distribución hipergeométrica`.
 
+## NOTAS (promedio ponderado)
+
+La pestaña **NOTAS** calcula notas con ponderaciones. Cada fila tiene la nota y su ponderación en %.
+
+- **Validación**: las ponderaciones deben sumar 100%; si no, avisa cuánto falta o cuánto sobra. También valida números y que la nota esté dentro de la escala (mínima y máxima editables, 1 a 7 por defecto).
+- **Nota que falta**: agrega una fila con la ponderación restante (por ejemplo, con 25% y 25% agrega una de 50%).
+- **Resolver**: deja una nota vacía (solo con su ponderación) y escribe la nota objetivo; calcula qué nota necesitas. Si hay varias vacías, indica la nota necesaria en cada una. Avisa si no es alcanzable o si ya lo tienes asegurado.
+- Sin ninguna nota vacía y con 100%, muestra la nota final.
+- Los datos se guardan en `localStorage` (clave `calc.grades.v1`).
+
 ## Pendiente respecto a la fx-85WA original
 
-- `ENG`, `a b/c` y `d/c` (fracciones), `°′″` y `DRG▶` no hacen nada todavía.
+- `a b/c` y `d/c` (fracciones), `°′″` y `DRG▶` no hacen nada todavía.
 - No hay modo de entrada `INS` ni el formato `Rnd`.
 - La precisión es de 10 cifras significativas.
 - Los mensajes de error son `Syntax ERROR` y `Math ERROR`.
