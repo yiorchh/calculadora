@@ -48,6 +48,11 @@ La pestaña **NOTAS** calcula notas con ponderaciones. Cada fila tiene la nota y
 - Sin ninguna nota vacía y con 100%, muestra la nota final.
 - Los datos se guardan en `localStorage` (clave `calc.grades.v1`).
 
+## Ajustes (⚙)
+
+- **Tema**: `Sistema` (sigue el modo del dispositivo), `Claro` u `Oscuro`. Se recuerda entre sesiones (`calc.settings.v1`).
+- **Datos**: botones, con confirmación, para borrar el historial, limpiar las notas o borrar todas las ecuaciones.
+
 ## Pendiente respecto a la fx-85WA original
 
 - `a b/c` y `d/c` (fracciones), `°′″` y `DRG▶` no hacen nada todavía.
