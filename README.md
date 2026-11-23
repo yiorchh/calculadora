@@ -44,6 +44,7 @@ La pestaña **NOTAS** calcula notas con ponderaciones. Cada fila tiene la nota y
 
 - **Validación**: las ponderaciones deben sumar 100%; si no, avisa cuánto falta o cuánto sobra. También valida números y que la nota esté dentro de la escala (mínima y máxima editables, 1 a 7 por defecto).
 - **Nota que falta**: agrega una fila con la ponderación restante (por ejemplo, con 25% y 25% agrega una de 50%).
+- **Precisión**: el redondeo es escolar (mitad hacia arriba) y limpia el ruido de coma flotante; la nota necesaria se redondea siempre hacia arriba a 4 decimales para que realmente alcance el objetivo.
 - **Resolver**: deja una nota vacía (solo con su ponderación) y escribe la nota objetivo; calcula qué nota necesitas. Si hay varias vacías, indica la nota necesaria en cada una. Avisa si no es alcanzable o si ya lo tienes asegurado.
 - **Repartir equitativamente**: reparte 100% entre todas las notas (o entre las subnotas de una fila). La última toma el resto del redondeo para que sume exactamente 100%.
 - **Subnotas**: el botón `+▾` de una fila le agrega subnotas (por ejemplo, un taller que vale 10% y tiene 3 notas). La ponderación de cada subnota es un % de esa fila y deben sumar 100% (hay botón `+ Subnota que falta`). La nota de la fila pasa a ser el promedio de sus subnotas, y la nota objetivo también se resuelve sobre una subnota vacía. Al quitar todas las subnotas la fila vuelve a ser normal.
@@ -53,6 +54,7 @@ La pestaña **NOTAS** calcula notas con ponderaciones. Cada fila tiene la nota y
 ## Ajustes (⚙)
 
 - **Tema**: `Sistema` (sigue el modo del dispositivo), `Claro` u `Oscuro`. Se recuerda entre sesiones (`calc.settings.v1`).
+- **Aproximación de notas**: activada por defecto, a 1 decimal (configurable de 0 a 4). Redondea la nota final como lo hacen muchas universidades (3.95 → 4.0) y se usa también al resolver: con objetivo 4 y 1 decimal basta una nota final de 3.95. Los cálculos intermedios no se redondean.
 - **Datos**: botones, con confirmación, para borrar el historial, limpiar las notas o borrar todas las ecuaciones.
 
 ## Pendiente respecto a la fx-85WA original
