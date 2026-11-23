@@ -54,7 +54,7 @@ La pestaña **NOTAS** calcula notas con ponderaciones. Cada fila tiene la nota y
 ## Ajustes (⚙)
 
 - **Tema**: `Sistema` (sigue el modo del dispositivo), `Claro` u `Oscuro`. Se recuerda entre sesiones (`calc.settings.v1`).
-- **Aproximación de notas**: activada por defecto, a 1 decimal (configurable de 0 a 4). Redondea la nota final como lo hacen muchas universidades (3.95 → 4.0) y se usa también al resolver: con objetivo 4 y 1 decimal basta una nota final de 3.95. Los cálculos intermedios no se redondean.
+- **Aproximación de notas**: activada por defecto, a 1 decimal (configurable de 0 a 4). Redondea como muchas universidades (3.95 → 4.0, 3.25 → 3.3) todo número de nota que se muestra: la nota final, el promedio de cada fila con subnotas, el promedio y el acumulado parcial y la nota que necesitas. También se usa en el cálculo: el promedio de cada fila con subnotas se redondea antes de ponderarlo y la nota final se redondea al final. La nota necesaria es la mínima (con esos decimales) que de verdad alcanza el objetivo.
 - **Datos**: botones, con confirmación, para borrar el historial, limpiar las notas o borrar todas las ecuaciones.
 
 ## Pendiente respecto a la fx-85WA original

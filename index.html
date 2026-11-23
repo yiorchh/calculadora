@@ -1557,8 +1557,15 @@
       return { n, w };
     };
 
+    const dec = approx.on ? approx.dec : null;
+    const dtxt = dec === 1 ? '1 decimal' : dec + ' decimales';
+    // Con la aproximación activa se redondea el promedio de cada fila con subnotas y la nota final
+    const rnd = x => dec === null ? x : roundTo(x, dec);
+    const show = x => grFmt(rnd(x));
+
     let sumW = 0, known = 0, knownW = 0, unW = 0;
     const unknown = [];
+    const model = [];   // filas válidas: { w, n } o { w, subs: [{ n, w }] }; n === null es la nota que falta
     const leaf = (label, n, w) => {
       if (n === null) { unknown.push({ label, w }); unW += w; }
       else { known += n * w / 100; knownW += w; }
@@ -1569,13 +1576,16 @@
       if (!c) return;
       if (c.w === null) { if (r.subs) errs.push(lab + ': falta la ponderación de la fila con subnotas.'); return; }
       sumW += c.w;
-      if (!r.subs) { leaf('la nota de la fila ' + (i + 1), c.n, c.w); return; }
+      if (!r.subs) { model.push({ w: c.w, n: c.n }); leaf('la nota de la fila ' + (i + 1), c.n, c.w); return; }
+      const m = { w: c.w, subs: [] };
+      model.push(m);
       let sumS = 0, allKnown = true, avg = 0, ok = true;
       r.subs.forEach((x, j) => {
         const sc = cellOf(x, i, j, lab + ', subnota ' + (j + 1), 100);
         if (!sc) { ok = false; return; }
         if (sc.w === null) { allKnown = false; return; }
         sumS += sc.w;
+        m.subs.push({ n: sc.n, w: sc.w });
         if (sc.n === null) allKnown = false; else avg += sc.n * sc.w / 100;
         leaf('la subnota ' + (j + 1) + ' de la fila ' + (i + 1), sc.n, c.w * sc.w / 100);
       });
@@ -1585,8 +1595,23 @@
         r.subs.forEach((x, j) => { const el = field(i, j, 'w'); if (el) el.classList.add('bad'); });
       }
       const shown = field(i, null, 'n');
-      if (shown) shown.value = (allKnown && ok && sumS === 100) ? grFmt(avg) : '';
+      if (shown) shown.value = (allKnown && ok && sumS === 100) ? show(avg) : '';
     });
+
+    // Nota final si cada nota que falta valiera x (con o sin aproximación)
+    const finalWith = (x, rounded) => {
+      let sum = 0;
+      model.forEach(m => {
+        let v;
+        if (m.subs) {
+          v = 0;
+          m.subs.forEach(sb => { v += (sb.n === null ? x : sb.n) * sb.w / 100; });
+          if (rounded) v = rnd(v);
+        } else v = m.n === null ? x : m.n;
+        sum += v * m.w / 100;
+      });
+      return rounded ? rnd(sum) : sum;
+    };
 
     sumW = grRound(sumW);
     const full = sumW === 100;
@@ -1597,37 +1622,38 @@
 
     let res = '', cls = '';
     const hasTarget = target !== null && !Number.isNaN(target);
-    const dec = approx.on ? approx.dec : null;
-    const dtxt = dec === 1 ? '1 decimal' : dec + ' decimales';
     if (full && !unknown.length && knownW > 0 && !errs.length) {
-      const fin = dec === null ? known : roundTo(known, dec);
+      const fin = finalWith(0, true), exact = finalWith(0, false);
       res = grFmt(fin);
       let txt = 'Nota final: ' + grFmt(fin);
-      if (dec !== null && grFmt(known) !== grFmt(fin)) txt += ' (exacta ' + grFmt(known) + ', aproximada a ' + dtxt + ')';
+      if (dec !== null && grFmt(exact) !== grFmt(fin)) txt += ' (exacta ' + grFmt(exact) + ', aproximada a ' + dtxt + ')';
       if (hasTarget) txt += geq(fin, target) ? ' · alcanza el objetivo ' + grFmt(target) : ' · no alcanza el objetivo ' + grFmt(target);
       info.push(txt);
     } else if (knownW > 0) {
-      info.push('Acumulado: ' + grFmt(known) + ' (sobre ' + grFmt(knownW) + '% de la nota).');
-      info.push('Promedio de lo rendido: ' + grFmt(known / (knownW / 100)) + '.');
+      info.push('Acumulado: ' + show(known) + ' (sobre ' + grFmt(knownW) + '% de la nota).');
+      info.push('Promedio de lo rendido: ' + show(known / (knownW / 100)) + '.');
     }
     if (hasTarget && unknown.length && full && !errs.length) {
-      // Con aproximación, basta que la nota final sin redondear llegue a medio paso por debajo del objetivo
-      let goal = target, extra = '';
-      if (dec !== null) {
-        const step = Math.pow(10, -dec);
-        const t2 = Math.ceil(target / step - 1e-9) * step;
-        goal = t2 - step / 2;
-        extra = ' (con aproximación a ' + dtxt + ', basta una nota final de ' + grFmt(goal) + ')';
+      // La nota final es no decreciente en x: se busca la x mínima (en pasos de 0.0001) que alcanza el objetivo
+      const ok = x => geq(finalWith(x, true), target);
+      const STEP = 1e4;
+      let lo = Math.round(min * STEP), hi = Math.round(max * STEP * 100);
+      let need;
+      if (ok(min)) need = min;
+      else {
+        while (hi - lo > 1) { const mid = Math.floor((lo + hi) / 2); if (ok(mid / STEP)) hi = mid; else lo = mid; }
+        need = hi / STEP;
       }
-      const raw = (goal - known) / (unW / 100);
-      const need = Math.ceil(raw * 1e4 - 1e-7) / 1e4;   // hacia arriba, para que de verdad alcance
+      // Con aproximación se muestra la nota mínima con los decimales elegidos que de verdad alcanza
+      const shownNeed = dec === null || need <= min ? need : Math.ceil(Number((need * Math.pow(10, dec)).toPrecision(12))) / Math.pow(10, dec);
+      const extra = dec === null ? '' : ' (aproximando a ' + dtxt + ')';
       const who = unknown.length === 1
         ? 'en ' + unknown[0].label + ' (' + grFmt(unW) + '%)'
         : 'en cada una de las ' + unknown.length + ' notas que faltan (' + grFmt(unW) + '% en total)';
-      res = grFmt(need);
-      if (need > max + 1e-9) { info.push('Para llegar a ' + grFmt(target) + extra + ' necesitas ' + grFmt(need) + ' ' + who + ', más que la máxima (' + grFmt(max) + '): no es alcanzable.'); cls = 'err'; }
-      else if (need < min) { info.push('Para llegar a ' + grFmt(target) + extra + ' basta con ' + grFmt(min) + ' (la mínima) ' + who + ': ya lo tienes asegurado.'); res = grFmt(min); }
-      else info.push('Para llegar a ' + grFmt(target) + extra + ' necesitas ' + grFmt(need) + ' ' + who + '.');
+      res = grFmt(shownNeed);
+      if (need > max + 1e-9) { info.push('Para llegar a ' + grFmt(target) + extra + ' necesitas ' + grFmt(shownNeed) + ' ' + who + ', más que la máxima (' + grFmt(max) + '): no es alcanzable.'); cls = 'err'; }
+      else if (need <= min) { info.push('Para llegar a ' + grFmt(target) + extra + ' basta con ' + grFmt(min) + ' (la mínima) ' + who + ': ya lo tienes asegurado.'); res = grFmt(min); }
+      else info.push('Para llegar a ' + grFmt(target) + extra + ' necesitas ' + grFmt(shownNeed) + ' ' + who + (dec !== null && grFmt(shownNeed) !== grFmt(need) ? ' (exacto ' + grFmt(need) + ').' : '.'));
     } else if (unknown.length && !full) {
       info.push('Completa las ponderaciones hasta 100% para calcular la nota que necesitas.');
     }
