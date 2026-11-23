@@ -243,6 +243,7 @@
     <div class="actions">
       <button type="button" id="grAdd">+ Agregar nota</button>
       <button type="button" id="grFill">+ Nota que falta</button>
+      <button type="button" id="grSplit" style="grid-column: 1 / -1">Repartir % equitativamente</button>
     </div>
     <div class="gr-set" style="margin-top:12px">
       <label>Nota objetivo<input id="grTarget" type="text" inputmode="decimal" autocomplete="off" placeholder="4"></label>
@@ -1505,7 +1506,8 @@
           subs.map((x, j) => '<div class="gr-sub-row">' + grInput(i, j, 'n', x.n, '?') + grInput(i, j, 'w', x.w, '%') +
             '<button type="button" data-delsub="' + i + ':' + j + '" aria-label="Quitar subnota">✕</button></div>').join('') +
           '<div class="actions"><button type="button" data-addsub="' + i + '">+ Subnota</button>' +
-          '<button type="button" data-fillsub="' + i + '">+ Subnota que falta</button></div></div>';
+          '<button type="button" data-fillsub="' + i + '">+ Subnota que falta</button>' +
+          '<button type="button" data-splitsub="' + i + '" style="grid-column: 1 / -1">Repartir % equitativamente</button></div></div>';
       }
       return h;
     }).join('');
@@ -1622,6 +1624,12 @@
     else list.push({ n: '', w: grFmt(rest) });
   }
 
+  // Reparte 100% entre todas las celdas; la última absorbe el resto del redondeo
+  function grSplit(list) {
+    const each = parseFloat((100 / list.length).toFixed(4));
+    list.forEach((c, k) => { c.w = grFmt(k === list.length - 1 ? 100 - each * (list.length - 1) : each); });
+  }
+
   $('viewGr').addEventListener('input', e => {
     const t = e.target;
     if (t.dataset.f) {
@@ -1648,7 +1656,8 @@
       const rest = grRest(subs);
       if (rest <= 0) return;
       grFillList(subs, rest);
-    } else if (d.delsub !== undefined) {
+    } else if (d.splitsub !== undefined) grSplit(gr.rows[+d.splitsub].subs);
+    else if (d.delsub !== undefined) {
       const [i, j] = d.delsub.split(':').map(Number);
       const row = gr.rows[i];
       row.subs.splice(j, 1);
@@ -1658,7 +1667,8 @@
       const rest = grRest(gr.rows);
       if (rest <= 0) return;
       grFillList(gr.rows, rest);
-    } else if (b.id === 'grClear') gr.rows = [{ n: '', w: '' }];
+    } else if (b.id === 'grSplit') grSplit(gr.rows);
+    else if (b.id === 'grClear') gr.rows = [{ n: '', w: '' }];
     else return;
     grSave(); grRender();
   });
