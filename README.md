@@ -46,7 +46,7 @@ La pestaña **NOTAS** calcula notas con ponderaciones. Cada fila tiene la nota y
 - **Nota que falta**: agrega una fila con la ponderación restante (por ejemplo, con 25% y 25% agrega una de 50%).
 - **Precisión**: el redondeo es escolar (mitad hacia arriba) y limpia el ruido de coma flotante; la nota necesaria se redondea siempre hacia arriba a 4 decimales para que realmente alcance el objetivo.
 - **Resolver**: deja una nota vacía (solo con su ponderación) y escribe la nota objetivo; calcula qué nota necesitas. Si hay varias vacías, indica la nota necesaria en cada una. Avisa si no es alcanzable o si ya lo tienes asegurado.
-- **Repartir equitativamente**: reparte 100% entre todas las notas (o entre las subnotas de una fila). La última toma el resto del redondeo para que sume exactamente 100%.
+- **Repartir lo que falta equitativamente**: reparte el % que falta para 100% solo entre las notas (o subnotas de una fila) que no tienen ponderación; las que ya la tienen no se tocan. La última toma el resto del redondeo para que sume exactamente 100%. Si no hay casillas vacías o ya se llegó a 100%, no hace nada.
 - **Subnotas**: el botón `+▾` de una fila le agrega subnotas (por ejemplo, un taller que vale 10% y tiene 3 notas). La ponderación de cada subnota es un % de esa fila y deben sumar 100% (hay botón `+ Subnota que falta`). La nota de la fila pasa a ser el promedio de sus subnotas, y la nota objetivo también se resuelve sobre una subnota vacía. Al quitar todas las subnotas la fila vuelve a ser normal.
 - Sin ninguna nota vacía y con 100%, muestra la nota final.
 - Los datos se guardan en `localStorage` (clave `calc.grades.v1`).
