@@ -126,9 +126,15 @@
     color: var(--ink);
   }
   #viewEq input.bad, #viewGr input.bad { border-color: var(--alpha); }
-  .gr-row { display: grid; grid-template-columns: 1fr 1fr 40px; gap: 6px; margin-bottom: 6px; }
+  .gr-row { display: grid; grid-template-columns: 1fr 1fr 40px 40px; gap: 6px; margin-bottom: 6px; }
+  .gr-sub-row { display: grid; grid-template-columns: 1fr 1fr 40px; gap: 6px; margin-bottom: 6px; }
+  .gr-sub-row button { padding: 0; }
+  .gr-subs { margin: 0 0 10px 14px; padding-left: 8px; border-left: 2px solid var(--line); }
+  .gr-subs .gr-cols { grid-template-columns: 1fr 1fr 40px; margin-top: 0; }
+  .gr-subs .actions { margin-top: 6px; }
+  #viewGr input:disabled { opacity: .75; }
   .gr-row button { padding: 0; }
-  .gr-cols { display: grid; grid-template-columns: 1fr 1fr 40px; gap: 6px; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+  .gr-cols { display: grid; grid-template-columns: 1fr 1fr 40px 40px; gap: 6px; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
   .gr-set { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
   .gr-set label { display: grid; gap: 3px; font-size: 12px; color: var(--muted); }
   .gr-info { font-size: 14px; margin-top: 10px; display: grid; gap: 4px; }
@@ -232,7 +238,7 @@
       <div class="expr" id="grExpr"></div>
       <div class="res" id="grRes"></div>
     </div>
-    <div class="gr-cols"><span>Nota</span><span>Ponderación (%)</span><span></span></div>
+    <div class="gr-cols"><span>Nota</span><span>Ponderación (%)</span><span></span><span></span></div>
     <div id="grRows"></div>
     <div class="actions">
       <button type="button" id="grAdd">+ Agregar nota</button>
@@ -1453,15 +1459,21 @@
   });
 
 
-  // ---------- NOTAS: promedio ponderado ----------
+  // ---------- NOTAS: promedio ponderado (con subnotas) ----------
+  // Una fila puede tener subnotas (r.subs): su ponderación es un % de esa fila y deben sumar 100.
   const GR_KEY = 'calc.grades.v1';
   let gr = { min: '1', max: '7', target: '4', rows: [{ n: '', w: '' }] };
   try {
     const raw = JSON.parse(localStorage.getItem(GR_KEY));
     if (raw && Array.isArray(raw.rows) && raw.rows.length) {
+      const cell = r => ({ n: String(r.n ?? ''), w: String(r.w ?? '') });
       gr = {
         min: String(raw.min ?? '1'), max: String(raw.max ?? '7'), target: String(raw.target ?? ''),
-        rows: raw.rows.map(r => ({ n: String(r.n ?? ''), w: String(r.w ?? '') }))
+        rows: raw.rows.map(r => {
+          const o = cell(r);
+          if (Array.isArray(r.subs) && r.subs.length) o.subs = r.subs.map(cell);
+          return o;
+        })
       };
     }
   } catch (e) { /* sin almacenamiento */ }
@@ -1474,28 +1486,38 @@
     return /^(\d+\.?\d*|\.\d+)$/.test(s) ? parseFloat(s) : NaN;
   }
   const grFmt = x => String(parseFloat(x.toFixed(4)));
+  const grRound = x => Math.round(x * 1e6) / 1e6;
   const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+  const grInput = (i, j, f, v, ph, dis) =>
+    '<input data-i="' + i + '"' + (j === null ? '' : ' data-j="' + j + '"') + ' data-f="' + f + '" type="text" inputmode="decimal"' +
+    ' autocomplete="off" placeholder="' + ph + '" value="' + esc(v) + '"' + (dis ? ' disabled' : '') + '>';
+
   function grRowsHtml() {
-    $('grRows').innerHTML = gr.rows.map((r, i) =>
-      '<div class="gr-row">' +
-      '<input data-i="' + i + '" data-f="n" type="text" inputmode="decimal" autocomplete="off" placeholder="?" value="' + esc(r.n) + '">' +
-      '<input data-i="' + i + '" data-f="w" type="text" inputmode="decimal" autocomplete="off" placeholder="%" value="' + esc(r.w) + '">' +
-      '<button type="button" data-del="' + i + '" aria-label="Quitar">✕</button></div>'
-    ).join('');
+    $('grRows').innerHTML = gr.rows.map((r, i) => {
+      const subs = r.subs;
+      let h = '<div class="gr-row">' + grInput(i, null, 'n', subs ? '' : r.n, subs ? 'prom.' : '?', !!subs) +
+        grInput(i, null, 'w', r.w, '%') +
+        (subs ? '<span></span>' : '<button type="button" data-sub="' + i + '" aria-label="Agregar subnotas" title="Subnotas">+▾</button>') +
+        '<button type="button" data-del="' + i + '" aria-label="Quitar">✕</button></div>';
+      if (subs) {
+        h += '<div class="gr-subs"><div class="gr-cols"><span>Subnotas de la fila ' + (i + 1) + '</span><span>% de esta fila</span><span></span></div>' +
+          subs.map((x, j) => '<div class="gr-sub-row">' + grInput(i, j, 'n', x.n, '?') + grInput(i, j, 'w', x.w, '%') +
+            '<button type="button" data-delsub="' + i + ':' + j + '" aria-label="Quitar subnota">✕</button></div>').join('') +
+          '<div class="actions"><button type="button" data-addsub="' + i + '">+ Subnota</button>' +
+          '<button type="button" data-fillsub="' + i + '">+ Subnota que falta</button></div></div>';
+      }
+      return h;
+    }).join('');
   }
 
   // Calcula y pinta el resultado sin recrear los campos (para no perder el foco)
   function grUpdate() {
     const min = grNum(gr.min), max = grNum(gr.max), target = grNum(gr.target);
     const errs = [];
-    const inputs = $('grRows').querySelectorAll('input');
-    inputs.forEach(el => el.classList.remove('bad'));
-    const bad = (i, f, msg) => {
-      const el = $('grRows').querySelector('input[data-i="' + i + '"][data-f="' + f + '"]');
-      if (el) el.classList.add('bad');
-      errs.push(msg);
-    };
+    $('grRows').querySelectorAll('input').forEach(el => el.classList.remove('bad'));
+    const field = (i, j, f) => $('grRows').querySelector('input[data-i="' + i + '"]' + (j === null ? ':not([data-j])' : '[data-j="' + j + '"]') + '[data-f="' + f + '"]');
+    const bad = (i, j, f, msg) => { const el = field(i, j, f); if (el) el.classList.add('bad'); errs.push(msg); };
     const setBad = (id, on) => $(id).classList.toggle('bad', on);
     const rangeOk = min !== null && max !== null && !Number.isNaN(min) && !Number.isNaN(max) && min < max;
     setBad('grMin', !rangeOk); setBad('grMax', !rangeOk);
@@ -1503,27 +1525,52 @@
     setBad('grTarget', Number.isNaN(target));
     if (Number.isNaN(target)) errs.push('La nota objetivo no es un número válido.');
 
+    // Revisa una nota y su ponderación; devuelve { n, w } o null si hay error
+    const cellOf = (c, i, j, label, wRowMax) => {
+      const n = grNum(c.n), w = grNum(c.w);
+      if (Number.isNaN(w)) { bad(i, j, 'w', label + ': ponderación no válida.'); return null; }
+      if (Number.isNaN(n)) { bad(i, j, 'n', label + ': nota no válida.'); return null; }
+      if (w !== null && w > wRowMax) { bad(i, j, 'w', label + ': la ponderación no puede superar ' + wRowMax + '%.'); return null; }
+      if (n !== null && rangeOk && (n < min || n > max)) {
+        bad(i, j, 'n', label + ': la nota debe estar entre ' + grFmt(min) + ' y ' + grFmt(max) + '.');
+        return null;
+      }
+      if (w === null && n !== null) { bad(i, j, 'w', label + ': falta la ponderación.'); return null; }
+      return { n, w };
+    };
+
     let sumW = 0, known = 0, knownW = 0, unW = 0;
     const unknown = [];
-    gr.rows.forEach((r, i) => {
-      const n = grNum(r.n), w = grNum(r.w);
-      if (Number.isNaN(w)) { bad(i, 'w', 'Fila ' + (i + 1) + ': ponderación no válida.'); return; }
-      if (Number.isNaN(n)) { bad(i, 'n', 'Fila ' + (i + 1) + ': nota no válida.'); return; }
-      if (w !== null && w > 100) { bad(i, 'w', 'Fila ' + (i + 1) + ': la ponderación no puede superar 100%.'); return; }
-      if (n !== null && rangeOk && (n < min || n > max)) {
-        bad(i, 'n', 'Fila ' + (i + 1) + ': la nota debe estar entre ' + grFmt(min) + ' y ' + grFmt(max) + '.');
-        return;
-      }
-      if (w === null) {
-        if (n !== null) bad(i, 'w', 'Fila ' + (i + 1) + ': falta la ponderación.');
-        return;
-      }
-      sumW += w;
-      if (n === null) { unknown.push({ i, w }); unW += w; }
+    const leaf = (label, n, w) => {
+      if (n === null) { unknown.push({ label, w }); unW += w; }
       else { known += n * w / 100; knownW += w; }
+    };
+    gr.rows.forEach((r, i) => {
+      const lab = 'Fila ' + (i + 1);
+      const c = cellOf(r.subs ? { n: '', w: r.w } : r, i, null, lab, 100);
+      if (!c) return;
+      if (c.w === null) { if (r.subs) errs.push(lab + ': falta la ponderación de la fila con subnotas.'); return; }
+      sumW += c.w;
+      if (!r.subs) { leaf('la nota de la fila ' + (i + 1), c.n, c.w); return; }
+      let sumS = 0, allKnown = true, avg = 0, ok = true;
+      r.subs.forEach((x, j) => {
+        const sc = cellOf(x, i, j, lab + ', subnota ' + (j + 1), 100);
+        if (!sc) { ok = false; return; }
+        if (sc.w === null) { allKnown = false; return; }
+        sumS += sc.w;
+        if (sc.n === null) allKnown = false; else avg += sc.n * sc.w / 100;
+        leaf('la subnota ' + (j + 1) + ' de la fila ' + (i + 1), sc.n, c.w * sc.w / 100);
+      });
+      sumS = grRound(sumS);
+      if (sumS !== 100 && ok) {
+        errs.push(lab + ': las subnotas suman ' + grFmt(sumS) + '% (deben sumar 100% de esta fila).');
+        r.subs.forEach((x, j) => { const el = field(i, j, 'w'); if (el) el.classList.add('bad'); });
+      }
+      const shown = field(i, null, 'n');
+      if (shown) shown.value = (allKnown && ok && sumS === 100) ? grFmt(avg) : '';
     });
 
-    sumW = Math.round(sumW * 1e6) / 1e6;
+    sumW = grRound(sumW);
     const full = sumW === 100;
     const info = [];
     if (sumW > 100) errs.push('Las ponderaciones suman ' + grFmt(sumW) + '%: se pasan por ' + grFmt(sumW - 100) + '%.');
@@ -1531,20 +1578,21 @@
     $('grFill').disabled = sumW >= 100;
 
     let res = '', cls = '';
+    const hasTarget = target !== null && !Number.isNaN(target);
     if (full && !unknown.length && knownW > 0 && !errs.length) {
       res = grFmt(known);
-      info.push('Nota final: ' + grFmt(known) + (target !== null && !Number.isNaN(target)
+      info.push('Nota final: ' + grFmt(known) + (hasTarget
         ? (known >= target ? ' (alcanza el objetivo ' + grFmt(target) + ')' : ' (no alcanza el objetivo ' + grFmt(target) + ')') : ''));
     } else if (knownW > 0) {
       info.push('Acumulado: ' + grFmt(known) + ' (sobre ' + grFmt(knownW) + '% de la nota).');
       info.push('Promedio de lo rendido: ' + grFmt(known / (knownW / 100)) + '.');
     }
-    if (target !== null && !Number.isNaN(target) && unknown.length && full && !errs.length) {
+    if (hasTarget && unknown.length && full && !errs.length) {
       const need = (target - known) / (unW / 100);
       const who = unknown.length === 1
-        ? 'en la nota de la fila ' + (unknown[0].i + 1) + ' (' + grFmt(unW) + '%)'
+        ? 'en ' + unknown[0].label + ' (' + grFmt(unW) + '%)'
         : 'en cada una de las ' + unknown.length + ' notas que faltan (' + grFmt(unW) + '% en total)';
-      res = grFmt(need); cls = '';
+      res = grFmt(need);
       if (need > max) { info.push('Para llegar a ' + grFmt(target) + ' necesitas ' + grFmt(need) + ' ' + who + ', más que la máxima (' + grFmt(max) + '): no es alcanzable.'); cls = 'err'; }
       else if (need < min) { info.push('Para llegar a ' + grFmt(target) + ' basta con ' + grFmt(min) + ' (la mínima) ' + who + ': ya lo tienes asegurado.'); res = grFmt(min); }
       else info.push('Para llegar a ' + grFmt(target) + ' necesitas ' + grFmt(need) + ' ' + who + '.');
@@ -1561,9 +1609,25 @@
 
   function grRender() { grRowsHtml(); $('grMin').value = gr.min; $('grMax').value = gr.max; $('grTarget').value = gr.target; grUpdate(); }
 
+  // Ponderación que falta para llegar a 100 en una lista de celdas
+  const grRest = list => {
+    let sum = 0;
+    list.forEach(c => { const w = grNum(c.w); if (w) sum += w; });
+    return grRound(100 - sum);
+  };
+  // Si la última celda está vacía la usa; si no, agrega una nueva
+  function grFillList(list, rest) {
+    const last = list[list.length - 1];
+    if (last && last.n === '' && last.w === '') last.w = grFmt(rest);
+    else list.push({ n: '', w: grFmt(rest) });
+  }
+
   $('viewGr').addEventListener('input', e => {
     const t = e.target;
-    if (t.dataset.f) gr.rows[+t.dataset.i][t.dataset.f] = t.value;
+    if (t.dataset.f) {
+      const row = gr.rows[+t.dataset.i];
+      (t.dataset.j === undefined ? row : row.subs[+t.dataset.j])[t.dataset.f] = t.value;
+    }
     else if (t.id === 'grMin') gr.min = t.value;
     else if (t.id === 'grMax') gr.max = t.value;
     else if (t.id === 'grTarget') gr.target = t.value;
@@ -1573,24 +1637,31 @@
   $('viewGr').addEventListener('click', e => {
     const b = e.target.closest('button');
     if (!b) return;
-    if (b.dataset.del !== undefined) {
-      gr.rows.splice(+b.dataset.del, 1);
+    const d = b.dataset;
+    if (d.del !== undefined) {
+      gr.rows.splice(+d.del, 1);
       if (!gr.rows.length) gr.rows.push({ n: '', w: '' });
+    } else if (d.sub !== undefined) gr.rows[+d.sub].subs = [{ n: '', w: '' }];
+    else if (d.addsub !== undefined) gr.rows[+d.addsub].subs.push({ n: '', w: '' });
+    else if (d.fillsub !== undefined) {
+      const subs = gr.rows[+d.fillsub].subs;
+      const rest = grRest(subs);
+      if (rest <= 0) return;
+      grFillList(subs, rest);
+    } else if (d.delsub !== undefined) {
+      const [i, j] = d.delsub.split(':').map(Number);
+      const row = gr.rows[i];
+      row.subs.splice(j, 1);
+      if (!row.subs.length) delete row.subs;
     } else if (b.id === 'grAdd') gr.rows.push({ n: '', w: '' });
     else if (b.id === 'grFill') {
-      let sum = 0;
-      gr.rows.forEach(r => { const w = grNum(r.w); if (w) sum += w; });
-      const rest = Math.round((100 - sum) * 1e6) / 1e6;
+      const rest = grRest(gr.rows);
       if (rest <= 0) return;
-      // Si la última fila está vacía, la usa en vez de crear otra
-      const last = gr.rows[gr.rows.length - 1];
-      if (last.n === '' && last.w === '') last.w = grFmt(rest);
-      else gr.rows.push({ n: '', w: grFmt(rest) });
+      grFillList(gr.rows, rest);
     } else if (b.id === 'grClear') gr.rows = [{ n: '', w: '' }];
     else return;
     grSave(); grRender();
   });
-
 
   // ---------- AJUSTES: tema y datos ----------
   const SET_KEY = 'calc.settings.v1';
