@@ -766,12 +766,15 @@
     'sin', 'cos', 'tan', 'log', 'ln', 'sqrt', 'cbrt', 'exp', 'pow10'];
   const NUM_RE = /^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i;
   const EQ_LETTERS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
-  const EQ_CHAR_RE = /^[A-Za-z0-9.+\-*/^()!,]$/;
+  const EQ_CHAR_RE = /^[A-Za-z0-9.+\-*/^()!,_]$/;
   // Cómo se ve la expresión en pantalla (la expresión guardada usa la notación interna)
   const EQ_DISP = [[' nCr ', ' C '], [' nPr ', ' P '], ['pow10(', '10ˣ('], ['exp(', 'eˣ('],
     ['asin(', 'sin⁻¹('], ['acos(', 'cos⁻¹('], ['atan(', 'tan⁻¹('], ['sqrt(', '√('], ['cbrt(', '³√('],
     ['^(-1)', '⁻¹'], ['^2', '²'], ['^3', '³'], ['*', '×'], ['/', '÷']];
-  const showExpr = s => EQ_DISP.reduce((o, [a, b]) => o.split(a).join(b), s);
+  const SUB_DIGITS = '₀₁₂₃₄₅₆₇₈₉';
+  // Los subíndices se guardan como A_1 y se muestran como A₁
+  const showExpr = s => EQ_DISP.reduce((o, [a, b]) => o.split(a).join(b), s)
+    .replace(/_(\d+)/g, (m, d) => [...d].map(c => SUB_DIGITS[+c]).join(''));
   const DEL_TOKENS = [...FN_NAMES.map(n => n + '('), '^(-1)', '^2', '^3', ' nCr ', ' nPr ']
     .sort((a, b) => b.length - a.length);
 
@@ -834,11 +837,15 @@
       if (/[A-Za-zπ]/.test(ch)) {
         const fn = FN_NAMES.find(n => src.startsWith(n, i) && src[i + n.length] === '(');
         if (fn) { out.push({ t: 'fn', n: fn }); i += fn.length; continue; }
-        // Una letra es variable (distingue mayúsculas); 'e' minúscula y 'π' son constantes
-        out.push({ t: ch === 'e' || ch === 'π' ? 'const' : 'var', n: ch });
-        i++;
+        // Una letra es variable (distingue mayúsculas); 'e' minúscula y 'π' son constantes.
+        // Con subíndice (A_1) la letra más sus dígitos cuentan como una sola variable.
+        const sub = /^_(\d+)/.exec(src.slice(i + 1));
+        const name = sub ? ch + '_' + sub[1] : ch;
+        out.push({ t: name === 'e' || name === 'π' ? 'const' : 'var', n: name });
+        i += name.length;
         continue;
       }
+      if (ch === '_') bad('El subíndice va justo después de una letra');
       if (!'+-*/^(),!'.includes(ch)) bad('Carácter no válido: ' + ch);
       out.push({ t: 'op', v: ch });
       i++;
@@ -920,7 +927,7 @@
       case 'var':
       case 'const': {
         const v = env[node.n];
-        if (v === undefined) bad('Falta valor de ' + node.n);
+        if (v === undefined) bad('Falta valor de ' + showExpr(node.n));
         return v;
       }
       case 'neg': return -evalTree(node.a, env);
@@ -1166,7 +1173,7 @@
     for (const v of cur.vars) {
       const lab = document.createElement('label');
       const tag = document.createElement('span');
-      tag.textContent = v;
+      tag.textContent = showExpr(v);
       const inp = document.createElement('input');
       inp.type = 'text';
       inp.inputMode = 'decimal';
@@ -1203,8 +1210,8 @@
       if (inputs[v]) inputs[v].classList.toggle('bad', !!raw && n === null);
     }
     if (!cur.tree) return showRes(cur.err, 'hint');
-    if (invalid.length) return showRes('Valor no válido en ' + invalid.join(', '), 'err');
-    if (missing.length) return showRes('Falta valor de ' + missing.join(', '), 'hint');
+    if (invalid.length) return showRes('Valor no válido en ' + invalid.map(showExpr).join(', '), 'err');
+    if (missing.length) return showRes('Falta valor de ' + missing.map(showExpr).join(', '), 'hint');
     try {
       eqValue = evaluateEquation(cur.tree, env);
       showRes(fmt(eqValue), '');
@@ -1261,6 +1268,16 @@
     renderEditor();
   }
 
+  // Subíndice: solo justo después de una letra (A → A_1, que cuenta como una sola variable)
+  function insertSub() {
+    if (!eq.editing) return;
+    if (!/[A-Za-zπ]$/.test(eq.expr.slice(0, eq.cursor))) {
+      setMsg('El subíndice va justo después de una letra: escribe la letra y luego pulsa x₁.');
+      return;
+    }
+    insertEq('_');
+  }
+
   function deleteEq() {
     if (!eq.editing || eq.cursor === 0) return;
     const before = eq.expr.slice(0, eq.cursor);
@@ -1308,7 +1325,7 @@
         { l: 'ALPHA', act: toggleCase, on: kbLower },
         { l: '◄', act: () => moveCursor(-1) },
         { l: '►', act: () => moveCursor(1) },
-        { l: 'MODE', dis: true },
+        { l: 'x₁', act: insertSub },   // subíndice (en lugar de MODE, que aquí no se usa)
         { l: 'ON', act: clearExpr }
       ]] },
       { cls: 'kb-fn', rows: [
@@ -1467,6 +1484,7 @@
     if (e.key === 'Backspace') { e.preventDefault(); deleteEq(); }
     else if (e.key === 'ArrowLeft') { e.preventDefault(); moveCursor(-1); }
     else if (e.key === 'ArrowRight') { e.preventDefault(); moveCursor(1); }
+    else if (e.key === '_') { e.preventDefault(); insertSub(); }
     else if (e.key.length === 1 && EQ_CHAR_RE.test(e.key)) { e.preventDefault(); insertEq(e.key); }
   });
 
@@ -1794,6 +1812,23 @@
     equations = []; persist(); showList(); setNote('Ecuaciones borradas.');
   });
   applyTheme();
+
+  // Fórmulas de ejemplo (una sola vez; se pueden borrar o editar)
+  const SEED_KEY = 'calc.seed.v1';
+  try {
+    if (!localStorage.getItem(SEED_KEY)) {
+      const now = Date.now();
+      [['Desviación estándar combinada (sp)', 'sqrt((s_1^2*(n_1-1)+s_2^2*(n_2-1))/(n_1+n_2-2))'],
+       ['Grados de libertad de Welch (ν)', '(s_1^2/n_1+s_2^2/n_2)^2/((s_1^2/n_1)^2/(n_1-1)+(s_2^2/n_2)^2/(n_2-1))'],
+       ['IC de μ1 − μ2: límite inferior', 'x_1-x_2-t*sqrt(s_1^2/n_1+s_2^2/n_2)'],
+       ['IC de μ1 − μ2: límite superior', 'x_1-x_2+t*sqrt(s_1^2/n_1+s_2^2/n_2)']
+      ].forEach(([name, expr], k) => {
+        if (!equations.some(x => sameName(x.name, name))) equations.push({ id: newId(), name, expr, createdAt: now + k, updatedAt: now + k });
+      });
+      persist();
+      localStorage.setItem(SEED_KEY, '1');
+    }
+  } catch (err) { /* sin almacenamiento no se agregan */ }
 
   grRender();
   showList();

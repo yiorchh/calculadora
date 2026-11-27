@@ -24,10 +24,11 @@ Teclado físico: dígitos, `+ - * /`, `( ) , . ^`, `Enter` para `=`, `Backspace`
 
 ## EQUATIONS (ecuaciones personalizadas)
 
-La pestaña **EQUATIONS** permite crear, guardar, buscar, abrir, editar, duplicar y eliminar ecuaciones con variables. La lista empieza vacía; no hay ecuaciones de ejemplo.
+La pestaña **EQUATIONS** permite crear, guardar, buscar, abrir, editar, duplicar y eliminar ecuaciones con variables. La lista trae unas fórmulas de ejemplo de estadística (ver abajo).
 
 - **Expresión**: se escribe con el teclado virtual o con el teclado físico. En pantalla `nCr` y `nPr` se muestran como `C` y `P`. Las variables son letras A–Z; `π` y `e` (minúscula) son constantes con valor inicial editable.
 - **Teclado**: la misma disposición que la calculadora. `ABC` cambia entre números y letras (en el teclado de letras la tecla pasa a `123`). `ALPHA` alterna mayúsculas y minúsculas. `SHIFT` activa las funciones secundarias (`x!`, `nPr`, `10ˣ`, `eˣ`, `sin⁻¹`, `π`...). Las teclas sin función en EQUATIONS (ENG, a b/c, Pol(, hyp, STO, RCL, M+, MODE) se muestran deshabilitadas.
+- **Subíndices**: a una letra se le puede poner subíndice (`s₁`, `n₂`, `x₁`) con la tecla `x₁` (donde estaba MODE) justo después de la letra, o escribiendo `_` en el teclado físico (`s_1`). La letra con su subíndice cuenta como una sola variable (`A₁₂` ≠ `A`·12) y aparece con su propio campo de valor. Para terminar el subíndice sigue con un operador o un paréntesis.
 - **Variables**: se detectan solas y solo aparecen sus campos. Cambiar un valor recalcula sin tocar la expresión guardada; para cambiar la expresión hay que pulsar **Editar** y luego **Guardar** (arriba, junto al nombre).
 - **Calcular**: muestra el resultado y lo pasa a la calculadora normal como valor actual y como `Ans`, para seguir operando con él.
 - **Funciones**: `sin cos tan asin acos atan sinh cosh tanh log ln sqrt cbrt exp` y factorial `!`. Las funciones se reconocen cuando el nombre va seguido de `(`; en otro caso las letras son variables, así que `sin` escrito sin paréntesis se lee como `s·i·n`.
@@ -36,7 +37,9 @@ La pestaña **EQUATIONS** permite crear, guardar, buscar, abrir, editar, duplica
 - **Guardado**: en `localStorage` del navegador (clave `calc.equations.v1`). Persiste entre sesiones en el mismo navegador.
 - **Nombres repetidos**: se pide confirmación antes de guardar con un nombre que ya existe. Eliminar también pide confirmación.
 
-Ejemplo de uso (no viene precargado): `(K nCr x)*((N-K) nCr (n-x))/(N nCr n)` con nombre `Distribución hipergeométrica`.
+Fórmulas de ejemplo (se agregan una sola vez al abrir por primera vez; se pueden editar o eliminar): desviación estándar combinada `sp`, grados de libertad de Welch `ν`, y el intervalo de confianza para μ₁ − μ₂ (límites inferior y superior, con `t` como variable).
+
+Ejemplo de uso: `(K nCr x)*((N-K) nCr (n-x))/(N nCr n)` con nombre `Distribución hipergeométrica`.
 
 ## NOTAS (promedio ponderado)
 
