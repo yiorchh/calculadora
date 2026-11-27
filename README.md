@@ -24,7 +24,7 @@ Teclado físico: dígitos, `+ - * /`, `( ) , . ^`, `Enter` para `=`, `Backspace`
 
 ## EQUATIONS (ecuaciones personalizadas)
 
-La pestaña **EQUATIONS** permite crear, guardar, buscar, abrir, editar, duplicar y eliminar ecuaciones con variables. La lista trae unas fórmulas de ejemplo de estadística (ver abajo).
+La pestaña **ECUAC.** (EQUATIONS) permite crear, guardar, buscar, abrir, editar, duplicar y eliminar ecuaciones con variables. La lista trae unas fórmulas de ejemplo de estadística (ver abajo).
 
 - **Expresión**: se escribe con el teclado virtual o con el teclado físico. En pantalla `nCr` y `nPr` se muestran como `C` y `P`. Las variables son letras A–Z; `π` y `e` (minúscula) son constantes con valor inicial editable.
 - **Teclado**: la misma disposición que la calculadora. `ABC` cambia entre números y letras (en el teclado de letras la tecla pasa a `123`). `ALPHA` alterna mayúsculas y minúsculas. `SHIFT` activa las funciones secundarias (`x!`, `nPr`, `10ˣ`, `eˣ`, `sin⁻¹`, `π`...). Las teclas sin función en EQUATIONS (ENG, a b/c, Pol(, hyp, STO, RCL, M+, MODE) se muestran deshabilitadas.
@@ -53,6 +53,15 @@ La pestaña **NOTAS** calcula notas con ponderaciones. Cada fila tiene la nota y
 - **Subnotas**: el botón `+▾` de una fila le agrega subnotas (por ejemplo, un taller que vale 10% y tiene 3 notas). La ponderación de cada subnota es un % de esa fila y deben sumar 100% (hay botón `+ Subnota que falta`). La nota de la fila pasa a ser el promedio de sus subnotas, y la nota objetivo también se resuelve sobre una subnota vacía. Al quitar todas las subnotas la fila vuelve a ser normal.
 - Sin ninguna nota vacía y con 100%, muestra la nota final.
 - Los datos se guardan en `localStorage` (clave `calc.grades.v1`).
+
+## TABLAS (Normal, t, χ² y F)
+
+La pestaña **TABLAS** busca valores en las tablas del curso (Normal estándar cola izquierda, t de Student, chi-cuadrada y F de Fisher). Los números se extrajeron de los PDF con un programa y se comprobaron contra ellos.
+
+- **Normal**: `P(Z ≤ z)` redondea z a 2 decimales (5 para arriba: 2.334 → 2.33; los negativos se redondean igual, alejándose de 0). `Buscar z` encuentra z a partir de una probabilidad. Fuera de la tabla (|z| > 3.49) avisa que la probabilidad tiende a 0 o a 1.
+- **t y χ²** (GL 1 a 30, 40, 50, 60, 80, 100, 1000; p de cola derecha) y **F** (GL1 y GL2 de 1 a 15; p = 0.005, 0.01, 0.025, 0.05): `Valor` da el valor crítico dados GL y p; `Buscar p` da p dado el valor y GL.
+- **Aproximación**: si el dato está exacto en la tabla, da ese valor. Si no (un GL entre dos filas, una p o un valor entre dos columnas), muestra la **interpolación lineal** entre los vecinos y también el **valor más cercano** de la tabla. Los GL pueden ser decimales (por ejemplo, el ν de Welch).
+- Fuera de lo que cubre la tabla (GL mayor que 1000, GL mayor que 15 en F, p fuera de las columnas) muestra un aviso en lugar de inventar un valor.
 
 ## Ajustes (⚙)
 
